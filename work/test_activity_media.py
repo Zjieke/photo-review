@@ -1,7 +1,7 @@
 import unittest,threading,tempfile,urllib.request,urllib.error
 from pathlib import Path
 from unittest.mock import patch
-from http.server import ThreadingHTTPServer
+from local_http import LocalHTTPServer as ThreadingHTTPServer
 import review_server as server
 class ActivityMediaTests(unittest.TestCase):
  def test_ranges(self):

@@ -14,6 +14,9 @@ import unittest
 import urllib.error
 import urllib.request
 from pathlib import Path
+from http.server import BaseHTTPRequestHandler
+from unittest.mock import patch
+from local_http import LocalHTTPServer
 
 ROOT = Path(__file__).resolve().parents[1]
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -26,6 +29,16 @@ def free_port():
 
 
 class LauncherTests(unittest.TestCase):
+    def test_loopback_bind_does_not_use_reverse_dns(self):
+        with patch('socket.getfqdn', side_effect=AssertionError('reverse DNS must not run')):
+            with LocalHTTPServer(('127.0.0.1', 0), BaseHTTPRequestHandler) as server:
+                self.assertEqual(server.server_name, '127.0.0.1')
+                self.assertGreater(server.server_port, 0)
+
+    def test_loopback_transport_rejects_external_bind(self):
+        with self.assertRaises(ValueError):
+            LocalHTTPServer(('0.0.0.0', 0), BaseHTTPRequestHandler)
+
     def start(self, root, *flags, stdlib_only=False):
         port = free_port()
         args = [sys.executable, '-u'] + (['-S'] if stdlib_only else [])

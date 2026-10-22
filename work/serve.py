@@ -1,6 +1,6 @@
 """Local development server. Use launcher.py to build the page and open a browser."""
 import argparse
-from http.server import ThreadingHTTPServer
+from local_http import LocalHTTPServer
 from review_server import Handler
 
 
@@ -10,7 +10,7 @@ def main():
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error('port must be between 1 and 65535')
-    with ThreadingHTTPServer(('127.0.0.1', args.port), Handler) as server:
+    with LocalHTTPServer(('127.0.0.1', args.port), Handler) as server:
         server.allowed_hosts = {'127.0.0.1', 'localhost'}
         print(f'照片整理器：http://127.0.0.1:{args.port}/', flush=True)
         try:

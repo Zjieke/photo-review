@@ -8,7 +8,8 @@ import secrets
 import subprocess
 import threading
 import tempfile
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
+from local_http import LocalHTTPServer as ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit, parse_qs
 

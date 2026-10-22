@@ -14,8 +14,9 @@ import threading
 import time
 import urllib.request
 import webbrowser
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
+from work.local_http import LocalHTTPServer
 
 ROOT = Path(__file__).resolve().parent
 WORK = ROOT / 'work'
@@ -73,7 +74,7 @@ def demo_handler(directory, instance):
 def serve(handler, port, instance, no_browser=False):
     print(f'[启动] 绑定 127.0.0.1:{port}', flush=True)
     try:
-        server = ThreadingHTTPServer(('127.0.0.1', port), handler)
+        server = LocalHTTPServer(('127.0.0.1', port), handler)
     except OSError as exc:
         raise RuntimeError(f'端口 {port} 无法使用；不会复用该端口上的其他服务。'
                            '请关闭占用程序，或使用 --port 8779。') from exc
