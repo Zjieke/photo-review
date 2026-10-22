@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+ <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; media-src 'self'; base-uri 'none'">
+ <meta name="color-scheme" content="light">
+ <title>照片整理 · 本地图库</title>
+ <style>/*__REVIEW_STYLE__*/
+/*__ACTIVITY_STYLE__*/</style>
+</head>
+<body data-input="pointer">
+<a class="skip-link" href="#libraryView">跳到照片内容</a>
+<header class="app-header">
+ <div class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" width="32" height="32" fill="none"><rect x="5" y="3" width="20" height="24" rx="5" transform="rotate(-9 5 3)" stroke="currentColor" stroke-width="1.5"/><rect x="8" y="6" width="20" height="23" rx="5" fill="currentColor"/><path d="m12 22 4-5 3 3 3-4 3 6H12Z" fill="var(--white)"/><circle cx="15" cy="12" r="2" fill="var(--white)"/></svg></span><span><strong class="brand-name">照片整理</strong></span></div>
+ <nav class="view-tabs" aria-label="图库查看方式">
+  <button id="libraryTab" aria-pressed="true" aria-controls="libraryView">标签整理</button>
+  <button id="activityTab" aria-pressed="false" aria-controls="activityView">活动分组</button>
+  <button id="duplicateTab" aria-pressed="false" aria-controls="duplicateView">重复与相似</button>
+ </nav>
+ <span class="local-badge"><span aria-hidden="true">●</span> 本机处理</span>
+</header>
+<div class="workspace">
+ <section class="workspace-heading" aria-label="图库概览">
+  <div class="heading-copy"><h1>图库</h1><span id="scopeSummary" class="sr-only">本地图库</span></div>
+  <div class="workspace-stats"><div class="stat"><strong id="photoTotal">—</strong><span>照片</span></div><div class="stat"><strong id="videoTotal">—</strong><span>视频</span></div><div class="stat"><strong id="basicTotal">—</strong><span>基础已识别</span></div></div>
+ </section>
+ <div class="statusbar">
+ <div class="connection"><span class="connection-dot" aria-hidden="true"></span><span id="deletionStatus" role="status">正在连接图库…</span><button id="authorizePhotos" disabled>授权照片访问</button></div>
+ <details class="model-progress" id="modelDetails"><summary><span class="model-dot" aria-hidden="true"></span><span id="modelPhase">增强识别</span><span id="modelCompactProgress"></span><span class="model-toggle-hint">详情</span></summary><div class="model-detail"><p id="localModelStatus" role="status">正在读取本地模型状态…</p><div id="modelProgress" class="model-track" role="progressbar" aria-label="本地增强识别进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><span id="modelProgressFill"></span></div><div class="model-detail-footer"><span class="muted">照片在本机处理，不上传。</span><button id="showModelResults" hidden>查看增强结果 ↗</button></div></div></details>
+ </div>
+ <section id="libraryView" aria-label="标签整理" tabindex="-1">
+  <div class="layout">
+   <aside class="filter-panel"><div class="filter-heading"><h2>筛选标签</h2><button id="toggleFilters" aria-expanded="false" aria-controls="filterContent">筛选标签</button></div><div id="filterContent"><p class="muted facet-hint">同组多选，跨组组合</p><div id="filters" class="filters"></div><p id="saveNote" class="muted">勾选与手动标签保存在此浏览器。底部可取消全部勾选，包括筛选外的照片。</p></div></aside>
+   <main class="library-main">
+    <div class="library-controls view-controls">
+    <div class="library-heading"><div><h2>全部照片 <span id="resultCount" class="count"></span></h2><p id="trialSummary" hidden></p></div><div class="library-tools"><select id="reviewScope" aria-label="查看范围"><option value="all">全图库</option><option value="trial">看图样本</option></select><button id="density" aria-pressed="false">紧凑视图</button></div></div>
+    <div class="toolbar search-toolbar"><input id="search" type="search" aria-label="搜索标签、描述或文件名" placeholder="搜索标签、画面描述或文件名…" autocomplete="off"><select id="mode" aria-label="标签组合方式"><option value="grouped">按维度组合</option><option value="any">任一标签</option><option value="all">同时包含</option></select><button id="reset">重置筛选</button></div>
+    <div id="activeSummary" class="active-summary"></div>
+    <div class="toolbar selection-tools"><button id="selectVisible">勾选已加载</button><button id="clearVisible">取消已加载</button><label><input type="checkbox" id="onlySelected"> 只看已勾选</label><label><input type="checkbox" id="includeHidden"> 显示隐藏照片</label></div>
+    <div class="results-meta"><p id="status" class="status" role="status"></p><p id="pageStatus" class="status"></p></div>
+    </div>
+    <div id="libraryScroll" class="media-scroll" tabindex="0" role="region" aria-label="照片列表，可独立滚动">
+    <div id="grid" class="grid"></div>
+    <div id="loadSentinel" class="load-sentinel"><button id="loadMore">继续加载</button><span id="loadEnd" class="muted" hidden>已显示全部匹配照片</span></div>
+    </div>
+   </main>
+  </div>
+ </section>
+ /*__ACTIVITY_SECTION__*/
+ /*__DUPLICATE_SECTION__*/
+</div>
+<div id="selectionDock" class="selection-dock" data-active="false" role="region" aria-label="已勾选项目操作"><div class="selection-copy"><strong id="selectionCount" aria-live="polite">还没有勾选</strong><span id="selectionHint">勾选照片或视频后，可统一确认删除</span></div><div class="actions"><button id="export" hidden>导出勾选清单</button><button id="clearAllSelected" disabled>取消全部勾选</button><button id="deleteSelected" class="danger" disabled>删除已勾选</button></div></div>
+<dialog id="preview" aria-labelledby="previewTitle">
+ <div class="dialog-head"><div><strong id="previewTitle"></strong><p id="previewPosition" class="muted" aria-live="polite"></p></div><button id="closePreview">关闭 · Esc</button></div>
+ <div class="preview-layout"><div class="preview-stage"><img id="previewImage" alt="照片大图"></div><aside class="preview-inspector"><p class="eyebrow">照片信息</p><div id="previewTags"></div><p id="previewReason" class="muted"></p></aside></div>
+ <div class="preview-footer"><div class="toolbar preview-controls"><button id="previewPrevious">← 上一张</button><button id="previewToggle" class="primary">勾选待删除 · 空格</button><button id="previewNext">下一张 →</button></div><p id="previewSelection" class="muted" aria-live="polite"></p><p class="keyboard-hint"><kbd>←</kbd> <kbd>→</kbd> 切换 · <kbd>空格</kbd> 勾选 · <kbd>Esc</kbd> 关闭</p></div>
+</dialog>
+<dialog id="activityMediaDialog" aria-labelledby="activityMediaTitle"><div class="dialog-head"><strong id="activityMediaTitle"></strong><button id="activityMediaClose">关闭</button></div><div class="toolbar"><button id="activityMediaSelect" class="primary" aria-pressed="false">勾选此项</button></div><div id="activityPlayer"></div><p id="activityPlayerError" role="status"></p></dialog>
+<dialog id="editor" aria-labelledby="editorTitle"><form id="editForm"><p class="eyebrow">手动标注</p><h2 id="editorTitle">编辑照片标签</h2><p class="muted">用逗号分隔，例如：王者荣耀，微信聊天记录，购物商品</p><input id="tagInput" aria-label="图片标签" autocomplete="off"><p class="muted">修改保存在此浏览器，自动识别更新不会覆盖。</p><div class="actions"><button type="button" onclick="document.getElementById('editor').close()">取消</button><button class="primary" type="submit">保存标签</button></div></form></dialog>
+<dialog id="exportDialog" aria-label="待处理清单"><div class="dialog-head"><strong>待处理清单</strong><button onclick="document.getElementById('exportDialog').close()">关闭</button></div><textarea id="exportText" aria-label="导出清单内容" readonly></textarea><div class="actions"><button id="selectExport">全选清单文本</button><button id="downloadExport" class="primary">下载 JSON 文件</button></div></dialog>
+<dialog id="deleteDialog" aria-labelledby="deleteTitle"><p class="eyebrow">删除确认</p><h2 id="deleteTitle">将勾选项目移到最近删除？</h2><p id="deleteSummary"></p><div class="delete-notice">会同步影响 iCloud 照片与已同步的设备。移入“最近删除”后通常可在 30 天内恢复。</div><details class="delete-list"><summary>查看待删除项目</summary><ul id="deleteItems"></ul></details><label class="confirm-label"><input type="checkbox" id="confirmDeletion"> 确认将这些项目移到“最近删除”</label><p id="deleteError" role="alert"></p><div class="actions"><button id="cancelDelete">取消</button><button id="confirmDelete" class="danger" disabled>确认删除</button></div></dialog>
+<script>/*__REVIEW_APP__*/</script>
+</body>
+</html>

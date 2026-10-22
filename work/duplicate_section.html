@@ -1,0 +1,8 @@
+<section id="duplicateView" class="collection-view" hidden>
+ <div class="collection-controls view-controls">
+ <div class="section-heading"><div><p class="eyebrow">给相近的画面做减法</p><h2>对照着看，留下想留的</h2><p class="muted">完全重复与相似照片分组查看，直接勾选想删除的照片。</p></div></div>
+ <div class="toolbar collection-toolbar"><input id="duplicateSearch" placeholder="搜索日期或文件名" aria-label="搜索重复照片日期或文件名"><select id="duplicateKind" aria-label="重复与相似分组类型"><option value="all">全部分组</option><option value="exact">完全重复</option><option value="similar">相似候选</option></select><select id="duplicateSort" aria-label="重复分组排序"><option value="size">空间从大到小</option><option value="count">数量从多到少</option></select><button id="duplicateDelete" class="danger">删除已勾选</button></div>
+ <div class="collection-context"><p id="duplicateSummary" class="status" role="status"></p><details class="collection-help"><summary>如何比较</summary><p>“完全重复”经本地原文件校验；“相似候选”由画面特征分组，可能包含不同画面。左右滚动可并排比较，点击图片打开大图。</p><p>“参考保留”按收藏状态、原始文件大小排序，不是清晰度评判。分组不会自动勾选。显示原始文件体积，不等于实际释放空间，实况附带视频、缓存及云端优化可能影响结果。</p><p id="duplicateCoverage" class="muted"></p></details></div>
+ </div>
+ <div id="duplicateScroll" class="media-scroll" tabindex="0" role="region" aria-label="重复与相似图片列表，可独立滚动"><div id="duplicateCards" class="duplicate-groups"></div><div class="collection-more"><button id="duplicateMore">继续加载分组</button></div></div>
+</section>

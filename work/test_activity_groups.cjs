@@ -1,0 +1,11 @@
+const vm=require('node:vm'),fs=require('node:fs'),assert=require('node:assert/strict');
+let src=fs.readFileSync(__dirname+'/activity_ui.js','utf8').split('function activityText')[0];
+const items=[...Array.from({length:10},(_,i)=>({uuid:'p'+i,day:'2026-01-01',kind:'photo',bytes:100,local_bytes:100})),...Array.from({length:3},(_,i)=>({uuid:'v'+i,day:'2026-01-02',kind:'video',bytes:200,local_bytes:0})),{uuid:'screen',day:'2026-01-01',kind:'photo',bytes:500,screenshot:true,local_bytes:500},{uuid:'one',day:'2026-01-03',kind:'photo',bytes:50,local_bytes:50}];
+const controls={activityScreens:{checked:false},activitySearch:{value:''},activityDensity:{value:'dense'},activitySort:{value:'size'}};
+const removed=new Set();const c=vm.createContext({activityData:{items},localStorage:{getItem:()=>null},el:id=>controls[id],removed});vm.runInContext(src,c);
+let groups=vm.runInContext('activityGroups()',c);assert.equal(groups.length,2);assert.equal(groups[0].bytes,1000);assert.equal(groups[0].photos,10);assert.equal(groups[1].videos,3);assert.equal(groups[1].video_bytes,600);assert.equal(groups[1].local_bytes,0);
+controls.activityScreens.checked=true;groups=vm.runInContext('activityGroups()',c);assert.equal(groups[0].bytes,1500);
+removed.add('screen');groups=vm.runInContext('activityGroups()',c);assert.equal(groups[0].bytes,1000);
+controls.activityDensity.value='all';assert.equal(vm.runInContext('activityGroups().length',c),3);
+controls.activitySearch.value='2026-01-02';assert.equal(vm.runInContext('activityGroups().length',c),1);
+console.log('PASS: 日期分组、集中日条件、照片视频分项体积、截屏开关、删除排除、日期搜索');

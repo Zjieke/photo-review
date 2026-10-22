@@ -1,0 +1,4 @@
+# Optional Apple Silicon local recognition environment; install separately.
+# Model weights are downloaded separately and retain their upstream license.
+mlx==0.32.4; sys_platform == 'darwin' and platform_machine == 'arm64'
+mlx-vlm==0.7.8; sys_platform == 'darwin' and platform_machine == 'arm64'

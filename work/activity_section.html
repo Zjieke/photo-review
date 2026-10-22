@@ -1,0 +1,19 @@
+<section id="activityView" class="collection-view" hidden>
+ <div class="collection-controls view-controls">
+ <div class="section-heading"><div><p class="eyebrow">按拍摄日期回顾</p><h2>把难忘的一天放在一起</h2><p class="muted">从演唱会到旅行，集中查看一天的照片、视频与占用空间。</p></div></div>
+ <div class="toolbar collection-toolbar"><input id="activitySearch" aria-label="搜索活动日期或名称" placeholder="搜索日期或活动名称"><select id="activitySort" aria-label="分组排序"><option value="size">空间从大到小</option><option value="count">数量从多到少</option><option value="date">日期从新到旧</option></select><select id="activityDensity" aria-label="分组范围"><option value="dense">集中拍摄日</option><option value="all">全部日期</option></select><label class="check-option"><input id="activityScreens" type="checkbox"> 包含截屏</label></div>
+ <div class="collection-context"><p id="activitySummary" class="status" role="status"></p><details class="collection-help"><summary>分组规则</summary><p>按图库记录的拍摄日期分组。集中拍摄日为至少 10 项、3 个视频或 1 GB，同一天可能包含多个活动，可自行命名。隐藏项目不展示。</p><p>显示原始照片和独立视频的文件体积，不含实况附带视频、编辑副本及缓存，不等于删除后释放的空间。</p></details></div>
+ </div>
+ <div id="activityOverview" class="media-scroll" tabindex="0" role="region" aria-label="活动分组列表，可独立滚动"><div id="activityCards" class="activity-cards"></div></div>
+ <section id="activityDetail" hidden>
+  <div class="activity-detail-controls view-controls">
+  <button id="activityBack" class="text-button">← 返回日期分组</button>
+  <div class="activity-detail-heading"><h3 id="activityDetailTitle"></h3><p id="activityDetailSummary" class="muted"></p></div>
+  <div class="toolbar collection-toolbar activity-detail-tools"><input id="activityName" aria-label="活动名称" placeholder="给这一天起名，例如：周末演唱会" maxlength="60"><button id="activitySaveName">保存名称</button><select id="activityMediaType" aria-label="活动媒体类型"><option value="all">照片与视频</option><option value="photo">只看照片</option><option value="video">只看视频</option></select></div>
+  <p id="activityNameStatus" class="muted inline-status" role="status"></p>
+  <div class="activity-selection-tools"><div class="actions"><button id="activitySelectGroup" title="勾选当前分组与媒体筛选中所有可删除项目，包含尚未加载的项目">勾选本组</button><button id="activityClearGroup" title="取消当前分组与媒体筛选中的勾选">取消本组</button><button id="activityDeleteSelected" class="danger" disabled>删除全部已勾选</button></div><p id="activitySelectionSummary" class="muted" role="status"></p></div>
+  <p id="activityDetailCount" class="status"></p>
+  </div>
+  <div id="activityMediaScroll" class="media-scroll" tabindex="0" role="region" aria-label="本组照片与视频，可独立滚动"><div id="activityGallery" class="grid activity-gallery"></div><div class="actions collection-more"><button id="activityMore">继续加载照片与视频</button></div></div>
+ </section>
+</section>

@@ -1,0 +1,6 @@
+# macOS development preview, Python 3.11+; no model weights or MLX runtime.
+osxphotos==0.76.1
+Pillow>=12.3.0,<14
+pyobjc-core==12.2.2; sys_platform == 'darwin'
+pyobjc-framework-Quartz==12.2.2; sys_platform == 'darwin'
+pyobjc-framework-Vision==12.2.2; sys_platform == 'darwin'
