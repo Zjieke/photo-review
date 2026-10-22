@@ -1,11 +1,14 @@
 """Launcher integration tests use generated SVGs and never scan or delete photos."""
 import importlib.util
 import json
+import os
 import shutil
+import signal
 import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 import urllib.error
@@ -25,29 +28,59 @@ def free_port():
 class LauncherTests(unittest.TestCase):
     def start(self, root, *flags, stdlib_only=False):
         port = free_port()
-        args = [sys.executable] + (['-S'] if stdlib_only else [])
+        args = [sys.executable, '-u'] + (['-S'] if stdlib_only else [])
         process = subprocess.Popen(args + [str(root / 'launcher.py'), '--no-browser', '--port', str(port), *flags],
-                                   cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                                   cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                   bufsize=1, start_new_session=True,
+                                   env={**os.environ, 'PHOTO_REVIEW_STARTUP_DIAGNOSTICS':'1'})
+        process.captured_lines = []
+        def capture():
+            for line in process.stdout:
+                process.captured_lines.append(line)
+        process.output_reader = threading.Thread(target=capture, daemon=True)
+        process.output_reader.start()
         self.addCleanup(self.stop, process)
         url = f'http://127.0.0.1:{port}'
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
             if process.poll() is not None:
-                self.fail('launcher exited before ready: ' + process.stdout.read())
+                self.fail('launcher exited before ready:\n' + self.stop(process))
             try:
                 with OPENER.open(url + '/api/health', timeout=.5) as response:
                     health = json.load(response)
                 return process, url, health
             except (urllib.error.URLError, OSError):
                 time.sleep(.05)
-        self.fail('launcher readiness timed out')
+        self.fail('launcher readiness timed out; captured startup diagnostics:\n' + self.stop(process))
 
     @staticmethod
     def stop(process):
-        if process.poll() is None:
-            process.terminate()
-        output, _ = process.communicate(timeout=5)
-        return output
+        if hasattr(process, 'captured_output'):
+            return process.captured_output
+        # Kill the whole isolated test process group, including any render child.
+        # Always reap it, even when graceful shutdown times out.
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.wait(timeout=5)
+        process.output_reader.join(timeout=1)
+        if process.output_reader.is_alive():
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.output_reader.join(timeout=1)
+        process.stdout.close()
+        process.captured_output = ''.join(process.captured_lines)
+        return process.captured_output
 
     def test_demo_requires_only_stdlib_and_exposes_no_photo_api(self):
         process, url, health = self.start(ROOT, '--demo', stdlib_only=True)

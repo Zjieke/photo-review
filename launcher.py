@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Launch the local browser UI; scanning is always an explicit --scan operation."""
 import argparse
+import faulthandler
 import importlib.util
 import json
 import os
@@ -21,7 +22,9 @@ WORK = ROOT / 'work'
 
 
 def run_script(path, *args):
+    print(f'[启动] 开始 {path.name}', flush=True)
     subprocess.run([sys.executable, str(path), *map(str, args)], cwd=ROOT, check=True)
+    print(f'[启动] 完成 {path.name}', flush=True)
 
 
 def require_modules(names):
@@ -68,6 +71,7 @@ def demo_handler(directory, instance):
 
 
 def serve(handler, port, instance, no_browser=False):
+    print(f'[启动] 绑定 127.0.0.1:{port}', flush=True)
     try:
         server = ThreadingHTTPServer(('127.0.0.1', port), handler)
     except OSError as exc:
@@ -75,16 +79,19 @@ def serve(handler, port, instance, no_browser=False):
                            '请关闭占用程序，或使用 --port 8779。') from exc
     server.allowed_hosts = {'127.0.0.1', 'localhost'}
     server.daemon_threads = True
+    print('[启动] 端口已绑定，启动请求线程', flush=True)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     url = f'http://127.0.0.1:{server.server_port}/'
     try:
         # Check this exact instance before opening any page; never reuse an unrelated listener.
+        print('[启动] 校验本机服务身份', flush=True)
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         with opener.open(url + 'api/health', timeout=5) as response:
             health = json.load(response)
         if health.get('application') != 'photo-review' or health.get('instance') != instance:
             raise RuntimeError('服务身份校验失败，未打开浏览器。')
+        faulthandler.cancel_dump_traceback_later()
         print(f'已就绪：{url}', flush=True)
         print('关闭终端或按 Ctrl+C 停止服务；关闭浏览器标签页不会停止服务。', flush=True)
         if not no_browser:
@@ -92,6 +99,7 @@ def serve(handler, port, instance, no_browser=False):
         while thread.is_alive():
             time.sleep(.5)
     finally:
+        print('[停止] 正在关闭本机服务', flush=True)
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
@@ -110,6 +118,9 @@ def main(argv=None):
         parser.error('需要 Python 3.11 或更新版本。')
     if not 1 <= args.port <= 65535:
         parser.error('--port 必须在 1 至 65535 之间。')
+    if os.environ.get('PHOTO_REVIEW_STARTUP_DIAGNOSTICS') == '1':
+        # Opt-in diagnostics for hung CI startup; contains stacks, not library data.
+        faulthandler.dump_traceback_later(10, repeat=True)
     try:
         if args.build_helper:
             run_script(ROOT / 'scripts/build_helper.py')
@@ -147,6 +158,8 @@ def main(argv=None):
     except (RuntimeError, subprocess.CalledProcessError, OSError) as exc:
         print(f'启动未完成：{exc}', file=sys.stderr)
         return 1
+    finally:
+        faulthandler.cancel_dump_traceback_later()
 
 
 if __name__ == '__main__':
