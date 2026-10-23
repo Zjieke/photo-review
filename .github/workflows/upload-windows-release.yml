@@ -1,0 +1,52 @@
+name: Upload verified Windows release assets
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful Windows build run ID
+        required: true
+      tag:
+        description: Existing draft release tag
+        required: true
+        default: 'v0.3.0-preview.1'
+permissions:
+  actions: read
+  contents: write
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BUILD_RUN: ${{ inputs.run_id }}
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - name: Transfer only verified Windows build outputs to a draft
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,re,subprocess
+          from pathlib import Path
+          def gh(*args): return subprocess.check_output(['gh',*args],text=True)
+          run=os.environ['BUILD_RUN'];tag=os.environ['RELEASE_TAG']
+          assert re.fullmatch(r'[0-9]+',run)
+          assert re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z0-9.]+)?',tag)
+          build=json.loads(gh('api','repos/'+os.environ['GH_REPO']+'/actions/runs/'+run))
+          assert build['conclusion']=='success' and build['event']=='workflow_dispatch'
+          assert build['name']=='Build Windows browser launcher'
+          release=json.loads(gh('release','view',tag,'--json','isDraft'))
+          assert release['isDraft'], 'Only upload to a maintainer-created draft'
+          gh('run','download',run,'--name','photo-review-Windows-x64','--dir','release-assets')
+          root=Path('release-assets');base='Photo-Review-'+tag[1:]+'-Windows-x64'
+          expected={base+'.zip',base+'.zip.sha256',base+'-Setup.exe',base+'-Setup.exe.sha256',base+'.manifest.json'}
+          assert {p.name for p in root.iterdir()}==expected
+          for suffix in ('.zip','-Setup.exe'):
+              file=root/(base+suffix)
+              digest=hashlib.file_digest(file.open('rb'),'sha256').hexdigest()
+              assert (root/(file.name+'.sha256')).read_text().split()[0]==digest
+              print(file.name,file.stat().st_size,digest,flush=True)
+          manifest=json.loads((root/(base+'.manifest.json')).read_text())
+          assert manifest['platform']=='Windows-x64' and manifest['model_weights_included'] is False
+          gh('release','upload',tag,*[str(root/name) for name in sorted(expected)])
+          print('Assets uploaded; release remains a draft for final review.')
+          PY
