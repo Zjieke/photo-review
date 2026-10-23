@@ -29,9 +29,11 @@
 构建机需要 Windows x64、Python 3.12+、系统 .NET Framework C# 编译器及 Inno Setup 6；最终用户不需要这些工具。
 
 ```powershell
-python scripts/build_windows.py --version 0.3.0-preview.1
-python scripts/smoke_windows.py dist/Photo-Review-0.3.0-preview.1-Windows-x64.zip --inference
+python scripts/build_windows.py --version 0.3.0-preview.2
+python scripts/smoke_windows.py dist/Photo-Review-0.3.0-preview.2-Windows-x64.zip --inference
 ```
+
+运行包已包含应用本地的 Microsoft C++ 运行库，不要求安装全局 VC++ Redistributable。构建和安装验收会逐一核对 PE 导入及 DLL 导出符号，避免借用构建机预装的运行库。
 
 构建脚本按固定 SHA256 下载 Astral 官方 CPython 3.12.15 与 llama.cpp b11829 Windows CPU 发布包，安装固定版本依赖，按源码白名单拷贝程序，编译启动器并创建当前用户安装程序。模型另行下载，照片与私人数据库不会进入安装包。
 

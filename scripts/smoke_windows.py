@@ -10,6 +10,7 @@ import time
 import urllib.error
 import urllib.request
 import zipfile
+from pe_dependencies import verify_msvc
 
 
 def main():
@@ -29,6 +30,7 @@ def main():
         assert (installed/'PhotoReview.exe').is_file() and (installed/'runtime/pythonw.exe').is_file()
         # Test the actual installed files, in a Chinese path, after a real installer run.
         app = installed
+        verify_msvc(app)
         data = temporary / '用户 数据'; data.mkdir()
         photos = temporary / '测试 照片'; photos.mkdir()
         environment = {**os.environ, 'PHOTO_REVIEW_DATA_DIR':str(data), 'PHOTO_REVIEW_NO_BROWSER':'1',

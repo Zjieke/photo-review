@@ -1,5 +1,5 @@
 ﻿#ifndef ReleaseVersion
-  #define ReleaseVersion "0.3.0-preview.1"
+  #define ReleaseVersion "0.3.0-preview.2"
 #endif
 [Setup]
 AppId=PhotoReview.Browser

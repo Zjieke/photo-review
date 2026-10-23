@@ -12,6 +12,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 from build_release import copy_project, sha256
+from pe_dependencies import verify_msvc
 
 ROOT = Path(__file__).resolve().parents[1]
 PYTHON_URL = ('https://github.com/astral-sh/python-build-standalone/releases/download/20261021/'
@@ -32,7 +33,7 @@ def fetch(url, expected, path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--version', default='0.3.0-preview.1')
+    parser.add_argument('--version', default='0.3.0-preview.2')
     args = parser.parse_args()
     if sys.platform != 'win32' or platform.machine().lower() not in ('amd64', 'x86_64'):
         raise RuntimeError('Build on Windows x64')
@@ -68,6 +69,16 @@ def main():
     server = next(engine.rglob('llama-server.exe'))
     if server.parent != engine:
         for file in server.parent.iterdir(): shutil.move(str(file), str(engine / file.name))
+    # These redistributable DLLs already ship with standalone Python / PyWinRT.
+    # An engine subprocess cannot use a DLL merely loaded in its Python parent.
+    msvc = [runtime/'vcruntime140.dll', runtime/'vcruntime140_1.dll',
+            runtime/'Lib/site-packages/winrt/msvcp140.dll']
+    for source in msvc:
+        if not source.is_file(): raise RuntimeError('Missing bundled Microsoft runtime: '+source.name)
+        for directory in (engine, runtime):
+            target = directory/source.name
+            if target.resolve() != source.resolve(): shutil.copy2(source,target)
+    verify_msvc(app)
     # Keep all DLLs and upstream license files. The model weights are separate downloads.
     csc = Path(os.environ['WINDIR']) / 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
     subprocess.run([str(csc), '/nologo', '/target:winexe', '/platform:x64', '/utf8output',
@@ -86,6 +97,7 @@ def main():
     manifest = dict(version=args.version, platform='Windows-x64', minimum_windows='Windows 10 1809',
         python_sha256=PYTHON_SHA, engine='llama.cpp b11829 CPU', engine_sha256=ENGINE_SHA,
         ffmpeg_sha256=sha256(Path(ffmpeg)),
+        app_local_msvc={source.name:sha256(source) for source in msvc},
         model_weights_included=False, authenticode_signed=False,
         dependencies=[{'name':item['metadata']['name'], 'version':item['metadata']['version'],
                        'sha256':item['download_info']['archive_info'].get('hashes',{}).get('sha256')}
