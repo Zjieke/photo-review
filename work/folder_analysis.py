@@ -1,3 +1,4 @@
+import contextlib
 """Resumable folder inventory, thumbnails, Windows OCR and activity metadata."""
 import datetime
 import json
@@ -44,7 +45,7 @@ def scan(root=None, output=OUT, state=STATE_DIR, ocr=None):
     rows, inventory, media, index = [], [], {}, {}
     skipped, failed, text_read = 0, 0, 0
     start = time.time()
-    with sqlite3.connect(state / 'folder-analysis.sqlite3') as cache:
+    with contextlib.closing(sqlite3.connect(state / 'folder-analysis.sqlite3')) as cache, cache:
         cache.execute('CREATE TABLE IF NOT EXISTS results(uuid TEXT PRIMARY KEY, fingerprint TEXT, data TEXT)')
         for position, (path, available) in enumerate(entries, 1):
             if not available:

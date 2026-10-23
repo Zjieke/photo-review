@@ -43,6 +43,7 @@ jobs:
         with:
           name: photo-review-Windows-x64
           path: |
+            dist/*-Setup.exe
             dist/*.zip
             dist/*.sha256
             dist/*.manifest.json

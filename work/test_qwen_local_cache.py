@@ -1,3 +1,4 @@
+import contextlib
 import json
 import sqlite3
 import tempfile
@@ -21,7 +22,7 @@ class LocalCacheTests(unittest.TestCase):
         save_result(self.db, 'done', 'v1', original, seconds=2)
         save_result(self.db, 'done', 'v1', {'status': 'complete', 'topic': ['购物']})
         save_result(self.db, 'done', 'v1', error='interrupted')
-        with sqlite3.connect(self.path) as reopened:
+        with contextlib.closing(sqlite3.connect(self.path)) as reopened, reopened:
             self.assertEqual(pending_ids(reopened, ['done', 'new'], 'v1'), ['new'])
             self.assertEqual(json.loads(reopened.execute('SELECT data FROM results').fetchone()[0]), original)
 

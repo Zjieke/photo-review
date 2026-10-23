@@ -119,7 +119,7 @@ class LauncherTests(unittest.TestCase):
             self.assertEqual(error.exception.code, expected)
             error.exception.close()
         output = self.stop(process)
-        fixture = next(Path(line) for line in output.splitlines() if line.endswith('/index.html'))
+        fixture = next(Path(line) for line in output.splitlines() if line.replace(chr(92),'/').endswith('/index.html'))
         if sys.platform != 'win32':
             self.assertFalse(fixture.parent.exists(), 'temporary demo data must be removed on shutdown')
         else:

@@ -22,6 +22,13 @@ def main():
     try:
         with zipfile.ZipFile(args.zip) as archive: archive.extractall(temporary)
         app = temporary / 'Photo Review'
+        installer = Path(args.zip).with_name(Path(args.zip).stem + '-Setup.exe').resolve()
+        installed = temporary / '安装 路径'
+        subprocess.run([str(installer), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART',
+                        '/DIR=' + str(installed), '/LOG=' + str(temporary/'installer.log')], check=True, timeout=180)
+        assert (installed/'PhotoReview.exe').is_file() and (installed/'runtime/pythonw.exe').is_file()
+        # Test the actual installed files, in a Chinese path, after a real installer run.
+        app = installed
         data = temporary / '用户 数据'; data.mkdir()
         photos = temporary / '测试 照片'; photos.mkdir()
         environment = {**os.environ, 'PHOTO_REVIEW_DATA_DIR':str(data), 'PHOTO_REVIEW_NO_BROWSER':'1',
@@ -116,6 +123,13 @@ save_folder(folder,state)
         if process and process.poll() is None:
             subprocess.run(['taskkill','/PID',str(process.pid),'/T','/F'],capture_output=True)
             process.wait(timeout=30)
+        installed = temporary / '安装 路径'
+        if (installed/'unins000.exe').is_file():
+            cache_existed=(temporary/'用户 数据/work/folder-analysis.sqlite3').exists()
+            subprocess.run([str(installed/'unins000.exe'), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'],
+                           timeout=120, check=True)
+            if cache_existed:
+                assert (temporary/'用户 数据/work/folder-analysis.sqlite3').exists(), 'Uninstall must preserve user data'
         if os.environ.get('PHOTO_REVIEW_KEEP_SMOKE')=='1':
             print('Synthetic diagnostics retained:',temporary)
         else: shutil.rmtree(temporary,ignore_errors=True)

@@ -86,7 +86,13 @@ def main():
     archive_path = Path(shutil.make_archive(str(dist / name), 'zip', dist, 'Photo Review'))
     (dist / (name + '.zip.sha256')).write_text(sha256(archive_path) + '  ' + archive_path.name + '\n')
     (dist / (name + '.manifest.json')).write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+    compiler = Path(os.environ['ProgramFiles(x86)']) / 'Inno Setup 6/ISCC.exe'
+    subprocess.run([str(compiler), '/DReleaseVersion=' + args.version,
+                    str(ROOT / 'scripts/windows-installer.iss')], check=True)
+    installer = dist / (name + '-Setup.exe')
+    (dist / (installer.name + '.sha256')).write_text(sha256(installer) + '  ' + installer.name + '\n')
     print(archive_path, archive_path.stat().st_size, sha256(archive_path), flush=True)
+    print(installer, installer.stat().st_size, sha256(installer), flush=True)
 
 
 if __name__ == '__main__': main()

@@ -48,7 +48,7 @@ class ReleaseBuildTests(unittest.TestCase):
             self.assertTrue((binary / 'python3').exists())
 
     def test_supplemental_licenses_are_in_release_source_whitelist(self):
-        files = {str(path.relative_to(ROOT)) for path in builder.source_files()}
+        files = {path.relative_to(ROOT).as_posix() for path in builder.source_files()}
         self.assertIn('third_party/licenses/pyobjc-12.2.2-LICENSE.txt', files)
         self.assertIn('third_party/licenses/tokenizers-0.23.3-LICENSE.txt', files)
         self.assertIn('third_party/licenses/SOURCES.md', files)

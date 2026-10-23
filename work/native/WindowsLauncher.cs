@@ -56,7 +56,7 @@ class PhotoReview {
             info.EnvironmentVariables["PHOTO_REVIEW_DATA_DIR"] = data;
             info.EnvironmentVariables["PYTHONDONTWRITEBYTECODE"] = "1";
             info.EnvironmentVariables["PYTHONNOUSERSITE"] = "1";
-            using (var output = new StreamWriter(logPath, true, new UTF8Encoding(false)))
+            using (var output = new StreamWriter(new FileStream(logPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite), new UTF8Encoding(false)))
             using (var process = new Process()) {
                 object sync = new object(); output.AutoFlush = true;
                 process.StartInfo = info;

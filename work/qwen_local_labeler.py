@@ -194,7 +194,7 @@ def main():
    raise
   finally:
    conn.close()
-   if sys.platform=='win32' and 'model' in globals():model.close()
+   if sys.platform=='win32' and hasattr(globals().get('model'),'close'):model.close()
 
 if __name__=='__main__':
  try:main()

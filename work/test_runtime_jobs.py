@@ -1,3 +1,4 @@
+import contextlib
 """Background jobs with short fake scripts; no Photos, network, or models."""
 import json
 import os
@@ -193,7 +194,7 @@ class RuntimeJobsTests(unittest.TestCase):
         snapshot = self.jobs.snapshot()
         self.assertEqual(snapshot['job']['state'], 'paused')
         self.assertEqual(snapshot['job']['progress'], {'processed': 2, 'total': 3})
-        with sqlite3.connect(self.jobs.state_dir / 'synthetic-cache.sqlite3') as connection:
+        with contextlib.closing(sqlite3.connect(self.jobs.state_dir / 'synthetic-cache.sqlite3')) as connection, connection:
             self.assertEqual({row[0] for row in connection.execute('SELECT uuid FROM results')},
                              {'previous-result', 'current-result'})
         self.assertEqual((self.data / 'model-path').read_text(), str(self.models.path('synthetic')))

@@ -136,7 +136,7 @@ class QwenFirstRunTests(unittest.TestCase):
                  patch.object(qwen, 'load_local_model', return_value=(None, None, None)), \
                  patch.object(qwen, 'run_one', side_effect=classify), \
                  patch.object(qwen, 'mx', SimpleNamespace(clear_cache=lambda: None), create=True), \
-                 patch.object(qwen.os, 'nice'):
+                 patch.object(qwen.os, 'nice', create=True):
                 qwen.main()
                 status = json.loads((output / 'local_model_progress.json').read_text())
                 self.assertEqual((status['phase'], status['processed'], status['total']), ('paused', 1, 2))
@@ -144,7 +144,7 @@ class QwenFirstRunTests(unittest.TestCase):
                 self.assertEqual(set(preserved), {'second'})
                 qwen.main()
             self.assertEqual(seen, ['second', 'first'])
-            with sqlite3.connect(work / 'qwen_cache.sqlite3') as connection:
+            with contextlib.closing(sqlite3.connect(work / 'qwen_cache.sqlite3')) as connection, connection:
                 self.assertEqual(connection.execute("SELECT COUNT(*) FROM results WHERE status='complete'").fetchone()[0], 2)
             self.assertEqual(json.loads((work / 'qwen_visual_results.json').read_text())['second'], preserved['second'])
 
@@ -159,7 +159,7 @@ class QwenFirstRunTests(unittest.TestCase):
 
     def test_missing_model_explains_setup_before_importing_mlx(self):
         with tempfile.TemporaryDirectory() as directory:
-            with self.assertRaisesRegex(RuntimeError, 'PHOTO_REVIEW_MODEL_PATH'):
+            with self.assertRaisesRegex(RuntimeError, '下载完整模型' if sys.platform == 'win32' else 'PHOTO_REVIEW_MODEL_PATH'):
                 qwen.load_local_model(Path(directory) / 'missing-model')
 
     def test_whole_current_inventory_uses_cache_and_ignores_stale_queue(self):
@@ -173,7 +173,7 @@ class QwenFirstRunTests(unittest.TestCase):
                     write_image(output, row)
             (output / 'full_results.json').write_text(json.dumps(rows))
             (work / 'qwen_queue.json').write_text('["obsolete-queue-entry"]')
-            with sqlite3.connect(work / 'qwen_cache.sqlite3') as connection:
+            with contextlib.closing(sqlite3.connect(work / 'qwen_cache.sqlite3')) as connection, connection:
                 initialize_cache(connection)
                 save_result(connection, 'already-done', qwen.BASE_VERSION, label('keep this result'))
                 save_result(connection, 'retry-me', qwen.BASE_VERSION, error='previous failure')
@@ -187,12 +187,12 @@ class QwenFirstRunTests(unittest.TestCase):
                  patch.object(qwen, 'load_local_model', return_value=(None, None, None)), \
                  patch.object(qwen, 'run_one', side_effect=classify), \
                  patch.object(qwen, 'mx', SimpleNamespace(clear_cache=lambda: None), create=True), \
-                 patch.object(qwen.os, 'nice'):
+                 patch.object(qwen.os, 'nice', create=True):
                 qwen.main()
             self.assertEqual(set(seen), {'retry-me', 'new-image'})
             self.assertEqual(set(json.loads((work / 'qwen_queue.json').read_text())),
                              {'already-done', 'retry-me', 'new-image'})
-            with sqlite3.connect(work / 'qwen_cache.sqlite3') as connection:
+            with contextlib.closing(sqlite3.connect(work / 'qwen_cache.sqlite3')) as connection, connection:
                 self.assertEqual(connection.execute('SELECT data FROM results WHERE uuid=?', ('already-done',)).fetchone()[0], preserved)
             status = json.loads((output / 'local_model_progress.json').read_text())
             self.assertEqual((status['phase'], status['processed'], status['total']), ('completed', 3, 3))
@@ -212,7 +212,7 @@ class QwenFirstRunTests(unittest.TestCase):
             prior = {identifier: label('older successful label') for identifier in
                      ['keep-label', 'replace-label', 'published-only', 'deleted', 'no-longer-in-library']}
             (work / 'qwen_visual_results.json').write_text(json.dumps(prior))
-            with sqlite3.connect(work / 'qwen_cache.sqlite3') as connection:
+            with contextlib.closing(sqlite3.connect(work / 'qwen_cache.sqlite3')) as connection, connection:
                 initialize_cache(connection)
                 for identifier in ['keep-label', 'replace-label', 'deleted', 'no-longer-in-library']:
                     save_result(connection, identifier, 'model-a', prior[identifier])
@@ -227,7 +227,7 @@ class QwenFirstRunTests(unittest.TestCase):
                  patch.object(qwen, 'load_local_model', return_value=(None, None, None)), \
                  patch.object(qwen, 'run_one', side_effect=classify), \
                  patch.object(qwen, 'mx', SimpleNamespace(clear_cache=lambda: None), create=True), \
-                 patch.object(qwen.os, 'nice'):
+                 patch.object(qwen.os, 'nice', create=True):
                 qwen.main()
             self.assertNotIn('deleted', seen)
             published = json.loads((work / 'qwen_visual_results.json').read_text())
@@ -235,7 +235,7 @@ class QwenFirstRunTests(unittest.TestCase):
             self.assertEqual(published['keep-label'], prior['keep-label'])
             self.assertEqual(published['published-only'], prior['published-only'])
             self.assertEqual(published['replace-label']['reason'], 'model b succeeded')
-            with sqlite3.connect(work / 'qwen_cache.sqlite3') as connection:
+            with contextlib.closing(sqlite3.connect(work / 'qwen_cache.sqlite3')) as connection, connection:
                 old = connection.execute('SELECT status,data FROM results WHERE uuid=? AND version=?', ('keep-label', 'model-a')).fetchone()
                 self.assertEqual(old[0], 'complete')
                 self.assertEqual(json.loads(old[1]), prior['keep-label'])
@@ -251,7 +251,7 @@ class QwenFirstRunTests(unittest.TestCase):
             work, output = project(root)
             with patch.multiple(qwen, ROOT=root, WORK=work, OUT=output), \
                  patch.object(qwen, 'load_local_model', side_effect=AssertionError('model must not load')), \
-                 patch.object(qwen.os, 'nice'):
+                 patch.object(qwen.os, 'nice', create=True):
                 qwen.main()
             status = json.loads((output / 'local_model_progress.json').read_text())
             self.assertEqual((status['phase'], status['processed'], status['total']), ('completed', 0, 0))
@@ -304,18 +304,18 @@ class StableNumberTests(unittest.TestCase):
             output.mkdir()
             (root / 'work').mkdir()
             legacy = output / 'analysis_cache.sqlite3'
-            with sqlite3.connect(legacy) as connection:
+            with contextlib.closing(sqlite3.connect(legacy)) as connection, connection:
                 connection.execute('CREATE TABLE results(uuid TEXT PRIMARY KEY, fingerprint TEXT, data TEXT)')
                 connection.execute('INSERT INTO results VALUES(?,?,?)', ('saved-image', 'v1', '{"analysis_status":"complete"}'))
             original_bytes = legacy.read_bytes()
             with patch.object(analysis, 'OUT', output):
                 destination = analysis.analysis_cache_path()
                 self.assertEqual(destination, root / 'work' / 'analysis_cache.sqlite3')
-                with sqlite3.connect(destination) as connection:
+                with contextlib.closing(sqlite3.connect(destination)) as connection, connection:
                     self.assertEqual(connection.execute('SELECT uuid FROM results').fetchall(), [('saved-image',)])
                     connection.execute('INSERT INTO results VALUES(?,?,?)', ('new-image', 'v1', '{}'))
                 analysis.analysis_cache_path()
-                with sqlite3.connect(destination) as connection:
+                with contextlib.closing(sqlite3.connect(destination)) as connection, connection:
                     self.assertEqual(connection.execute('SELECT COUNT(*) FROM results').fetchone()[0], 2)
             self.assertEqual(legacy.read_bytes(), original_bytes)
 
