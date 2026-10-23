@@ -123,9 +123,9 @@ def trash(request, adapter=native):
         try:
             result=adapter('trash',ids)
             if result.get('ok') and set(result.get('deleted',[]))!=set(ids):
-                result={'ok':False,'uncertain':True,'error':'返回的删除清单不匹配，请到照片应用核对。'}
+                result={'ok':False,'uncertain':True,'error':'返回的删除清单不匹配，请核对源文件或系统回收位置。'}
         except Exception:
-            result={'ok':False,'uncertain':True,'error':'未收到确定结果，请到照片应用核对，勿重复删除。'}
+            result={'ok':False,'uncertain':True,'error':'未收到确定结果，请核对源文件或系统回收位置，勿重复删除。'}
         record.update(state='done' if result.get('ok') else 'uncertain' if result.get('uncertain') else 'failed',result=result)
         write_receipt(path,record)
         return result
@@ -270,7 +270,7 @@ class Handler(BaseHTTPRequestHandler):
             else: return self.reply({'ok':False,'error':'Not found'},404)
             self.reply(result)
         except ValueError as e: self.reply({'ok':False,'error':str(e)},400)
-        except Exception: self.reply({'ok':False,'error':'助手未完成请求，请检查照片访问权限后刷新页面。'},503)
+        except Exception: self.reply({'ok':False,'error':'操作未完成，请检查照片或文件访问权限后刷新页面。'},503)
 
 if __name__=='__main__':
     from serve import main

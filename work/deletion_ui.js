@@ -32,7 +32,7 @@ el('cancelDelete').onclick=()=>{if(!deletionBusy)el('deleteDialog').close()};
 el('deleteDialog').addEventListener('cancel',e=>{if(deletionBusy)e.preventDefault()});
 el('confirmDelete').onclick=async()=>{
  if(photoAuthorization!=='authorized'||deletionBusy||!el('confirmDeletion').checked||!pendingDeletion.length)return;
- deletionBusy=true;updateDeleteButton();el('confirmDelete').disabled=true;el('cancelDelete').disabled=true;el('confirmDeletion').disabled=true;el('deleteError').textContent='正在等待系统处理，请留意可能出现的照片删除确认框……';
+ deletionBusy=true;updateDeleteButton();el('confirmDelete').disabled=true;el('cancelDelete').disabled=true;el('confirmDeletion').disabled=true;el('deleteError').textContent='正在等待系统处理，请留意可能出现的系统确认框……';
  const targets=[...pendingDeletion];let completed=0;
  try{
   for(let offset=0;offset<targets.length;offset+=120){

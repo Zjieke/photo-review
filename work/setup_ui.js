@@ -120,6 +120,7 @@
    enable('setupScan', !!platform.supported && available && !running && (!platform.folder_mode || !!library.folder));
    if (get('setupFolderControls')) {
     hide('setupFolderControls', !platform.folder_mode);
+    text('setupIntro', platform.folder_mode ? '选择本机照片文件夹，在这台电脑完成整理。' : '读取系统照片，在这台电脑完成整理。');
     enable('setupFolder', available && !running);
     text('setupFolderPath', library.folder || '尚未选择文件夹');
     text('setupLibraryHelp', platform.folder_mode ? '选择本机照片目录或已下载的 iCloud 照片文件夹。基础 OCR 使用系统已有语言包；仅在云端的文件会跳过。' : '首次使用时，请按系统提示允许照片访问。基础识别不需要下载模型。');
