@@ -2,27 +2,27 @@
 
 在浏览器里整理本机照片：多维标签、活动分组、重复与相似图片，以及勾选后统一删除。
 
-**当前为 macOS 测试版，提供自带 Python 的双击启动包。** 支持 Apple Silicon（M 系列）Mac；系统最低 macOS 14。图库、标签、活动、删除和可选模型管理均在浏览器中使用。Windows 和 Intel Mac 尚无对应安装包。
+**提供内置 Python 的 macOS 与 Windows 测试包，所有整理操作在浏览器中完成。** Mac 支持 M 系列、macOS 14+；Windows 支持 Windows 10 1809+/11 x64。Intel Mac 暂无安装包。
 
 ## 下载后直接使用
 
-1. 在 [Releases](https://github.com/Zjieke/photo-review/releases) 下载 macOS arm64 ZIP，解压后打开 `Photo Review.app`。无需自行安装 Python、Ollama 或运行终端命令。
-2. 浏览器打开后，点 **开始整理图库**。按系统提示允许所需的照片访问；基础识别无需下载模型。
+1. 在 [Releases](https://github.com/Zjieke/photo-review/releases) 下载对应平台。**Windows：双击 `Windows-x64-Setup.exe` 安装，完成后打开网页；以后双击快捷方式。Mac：解压 arm64 ZIP，打开 `Photo Review.app`。** 均无需自行安装 Python、Ollama 或运行终端命令。
+2. Windows 先在 **图库与模型 → 选择照片文件夹** 中选本机目录，再开始扫描；Mac 按系统提示允许照片访问。基础整理无需下载模型。Windows 的云盘照片须已下载到本机，在线占位文件会跳过。
 3. 如需更细的画面标签，打开 **图库与模型 → 下载模型**。支持查看进度、暂停、断点续传和失败重试；下载完成后点 **开始识别**。
 
 关闭浏览器标签页后，后台任务会继续。在“图库与模型”中点“退出程序”可保存进度并停止；再次双击会打开已有服务或恢复启动。
 
-**当前 `adhoc` 包尚未完成 Apple 公证，属于测试版，macOS 可能拦截首次打开。** 正式签名、公证版需要维护者的 Developer ID 证书；不要为运行测试包关闭系统安全保护。详见 [打包与签名状态](docs/packaging.md)。
+**当前 `adhoc` 包尚未完成 Apple 公证，属于测试版，macOS 可能拦截首次打开。** 正式签名、公证版需要维护者的 Developer ID 证书；不要为运行测试包关闭系统安全保护。Windows 测试包尚无 Authenticode 签名，系统也可能提示未知发布者。详见 [Mac 打包](docs/packaging.md) 和 [Windows 使用与构建](docs/windows.md)。
 
 ## 已有功能
 
-- **本地基础识别**：Apple Vision 中英文 OCR、图像分类和规则标签，不要求下载大模型。
+- **本地基础识别**：Mac 使用 Apple Vision OCR 与图像分类；Windows 使用系统已有语言包的离线 OCR、文件信息和规则标签。均不要求下载大模型。
 - **多维标签**：按类型、场景、平台和内容组合筛选，支持搜索、手动改标签与大图预览。
 - **活动分组**：按拍摄日期集中查看照片、视频数量及原始文件体积，可为活动命名。
 - **重复与相似**：本地原文件 SHA-256 查重，感知哈希、颜色与比例筛出相似候选；并排查看后自行勾选。
-- **统一删除**：照片和视频共享选择，一次确认后自动分批移入 Apple Photos 的“最近删除”。收藏和隐藏项目受保护。
+- **统一删除**：照片和视频共享选择，一次确认后自动分批处理。Mac 移入 Photos“最近删除”，收藏和隐藏项目受保护；Windows 将扫描过且未变化的原文件移入回收站。同步目录中的删除可能影响云端及其他设备。
 - **独立滚动**：图片区单独滚动，导航、搜索和操作区保持固定；方向键翻图、空格勾选。
-- **可选增强**：Qwen／MLX 在本机补充标签，逐项保存结果，重新启动可接着处理。
+- **可选增强**：Mac 使用 Qwen／MLX，Windows 使用 Qwen3-VL／llama.cpp CPU 引擎；逐项保存结果，重新启动可接着处理。
 - **网页管理**：启动基础扫描、下载和选择增强模型、暂停及继续识别，全程无需终端。模型文件按固定版本下载并校验完整性。
 
 照片、OCR 和模型推理留在本机。安装依赖和下载模型需要联网；本项目不提供云端照片上传接口。
@@ -68,11 +68,11 @@ python3 -m venv .venv
 
 ## 可选 Qwen 增强
 
-基础整理不依赖大模型。双击启动包已包含 MLX 推理环境，在网页中按需下载 Qwen3.5 4B 4-bit（约 3.1 GB）即可启用；模型权重不会在首次打开时自动下载。源码运行和自定义兼容模型见 [本地模型说明](docs/local-model.md)。
+基础整理不依赖大模型。启动包已包含对应平台的推理环境：Mac 为 Qwen3.5 4B 4-bit（约 3.1 GB），Windows 为 Qwen3-VL 2B Q8（约 2.3 GB），均在网页中按需下载；模型权重不会在首次打开时自动下载。源码运行和自定义兼容模型见 [本地模型说明](docs/local-model.md)。
 
 ## 数据与当前限制
 
-- 启动包把数据保存在 `~/Library/Application Support/Photo Review/`，更新 `.app` 不覆盖已有结果或模型。源码模式默认使用项目目录，或通过 `PHOTO_REVIEW_DATA_DIR` 指定独立目录。
+- Mac 数据保存在 `~/Library/Application Support/Photo Review/`；Windows 数据保存在 `%LOCALAPPDATA%\Photo Review\`。更新或卸载程序不删除这些结果或模型。源码模式默认使用项目目录，或通过 `PHOTO_REVIEW_DATA_DIR` 指定独立目录。
 - 数据目录中的 `outputs/` 保存本机预览、OCR、索引及删除回执；`work/` 保存缓存、任务状态和模型。它们不属于公开源码或下载的启动包。
 - 手工标签、活动名称和勾选保存在**当前浏览器、当前访问地址**的 localStorage 中。换浏览器、换端口或清理站点数据不会自动迁移这些记录。
 - 活动分组显示原始文件体积，不等于删除后实际释放的磁盘空间；不包含实况附带视频、编辑副本或系统缓存。
@@ -82,7 +82,7 @@ python3 -m venv .venv
 
 ## 开发与测试
 
-界面为原生 HTML／CSS／JavaScript，无 npm 运行时依赖。Python 负责图库、分析和本机 HTTP 服务；Swift 只负责 PhotoKit 权限及确认删除。
+界面为原生 HTML／CSS／JavaScript，无 npm 运行时依赖。Python 负责图库、分析和本机 HTTP 服务；Swift 负责 Mac PhotoKit 权限及删除；C# 仅承担 Windows 启动与文件夹选择。
 
 ```sh
 .venv/bin/python -m unittest discover -s work -p 'test_*.py'
@@ -103,7 +103,7 @@ docs/                模型、架构与后续计划
 outputs/             本机生成数据（不提交）
 ```
 
-后续重点是完成 Apple 正式签名与公证、统一保存人工标签、增量 API，以及 Windows 适配。详见 [后续计划](docs/roadmap.md)。
+后续重点是正式签名、统一保存人工标签、增量 API，以及更多硬件与系统版本验证。详见 [后续计划](docs/roadmap.md)。
 
 ## 参与和许可
 

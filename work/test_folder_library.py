@@ -57,5 +57,17 @@ class FolderTests(unittest.TestCase):
         with self.assertRaises(ValueError):save_folder(Path(self.root.anchor),self.state)
         with self.assertRaises(ValueError):save_folder(self.root,self.state)
 
+    def test_unavailable_ocr_is_retried_and_replacement_file_gets_new_identity(self):
+        ocr=Mock(side_effect=[('', 'unavailable'), ('PHOTO','complete'), ('NEW','complete')])
+        scan(output=self.output,state=self.state,ocr=ocr)
+        scan(output=self.output,state=self.state,ocr=ocr)
+        self.assertEqual(ocr.call_count,2)
+        old=json.loads((self.output/'full_results.json').read_text(encoding='utf-8'))[0]['uuid']
+        replacement=self.photos/'new.png'; Image.new('RGB',(90,60),'blue').save(replacement)
+        replacement.replace(self.picture)
+        scan(output=self.output,state=self.state,ocr=ocr)
+        new=json.loads((self.output/'full_results.json').read_text(encoding='utf-8'))[0]['uuid']
+        self.assertNotEqual(old,new)
+
 
 if __name__=='__main__':unittest.main()

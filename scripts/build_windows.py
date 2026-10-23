@@ -50,6 +50,9 @@ def main():
         raise RuntimeError('Unexpected standalone Python layout')
     copy_project(app / 'project')
     shutil.copy2(ROOT / 'requirements-windows.txt', app / 'project')
+    (app / 'project/docs').mkdir()
+    for name in ('windows.md', 'local-model.md', 'packaging.md'):
+        shutil.copy2(ROOT / 'docs' / name, app / 'project/docs' / name)
     environment = {**os.environ, 'PYTHONUTF8':'1', 'PYTHONNOUSERSITE':'1', 'PYTHONDONTWRITEBYTECODE':'1'}
     for name in ('PYTHONHOME','PYTHONPATH','VIRTUAL_ENV'): environment.pop(name, None)
     subprocess.run([str(python), '-m', 'pip', 'install', '--no-compile', '--only-binary=:all:',
@@ -71,8 +74,18 @@ def main():
                     '/reference:System.Windows.Forms.dll', '/out:' + str(app / 'PhotoReview.exe'),
                     str(ROOT / 'work/native/WindowsLauncher.cs')], check=True)
     report = json.loads((cache / 'dependencies.json').read_text(encoding='utf-8'))
+    # Preserve the executable's own licensing/build notice and exact binary digest.
+    ffmpeg = subprocess.check_output([str(python), '-c', 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())'],
+                                    env=environment, text=True).strip()
+    license_dir = app / 'project/third_party/licenses'
+    license_dir.mkdir(parents=True,exist_ok=True)
+    ffmpeg_notice = subprocess.run([ffmpeg,'-L'], capture_output=True,text=True,check=True)
+    (license_dir/'ffmpeg-binary-notice.txt').write_text(ffmpeg_notice.stdout+ffmpeg_notice.stderr,encoding='utf-8')
+    build_notice = subprocess.run([ffmpeg,'-buildconf'], capture_output=True,text=True,check=True)
+    (license_dir/'ffmpeg-build-configuration.txt').write_text(build_notice.stdout+build_notice.stderr,encoding='utf-8')
     manifest = dict(version=args.version, platform='Windows-x64', minimum_windows='Windows 10 1809',
         python_sha256=PYTHON_SHA, engine='llama.cpp b11829 CPU', engine_sha256=ENGINE_SHA,
+        ffmpeg_sha256=sha256(Path(ffmpeg)),
         model_weights_included=False, authenticode_signed=False,
         dependencies=[{'name':item['metadata']['name'], 'version':item['metadata']['version'],
                        'sha256':item['download_info']['archive_info'].get('hashes',{}).get('sha256')}

@@ -1,4 +1,4 @@
-#ifndef ReleaseVersion
+﻿#ifndef ReleaseVersion
   #define ReleaseVersion "0.3.0-preview.1"
 #endif
 [Setup]

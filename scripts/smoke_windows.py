@@ -74,12 +74,15 @@ sys.path.insert(0,sys.argv[1])
 from PIL import Image,ImageDraw,ImageFont
 from folder_library import save_folder
 from windows_ocr import _read
+import subprocess,imageio_ffmpeg
 folder,state=Path(sys.argv[2]),Path(sys.argv[3])
 image=Image.new('RGB',(1000,650),'white');draw=ImageDraw.Draw(image)
 font=ImageFont.truetype('C:/Windows/Fonts/arial.ttf',62)
 draw.text((70,65),'PHOTO REVIEW 2026',font=font,fill='black')
 draw.rectangle((230,300,600,600),fill='burlywood');draw.polygon([(180,300),(420,140),(650,300)],fill='red')
 image.save(folder/'sample.png')
+subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(),'-v','error','-f','lavfi','-i','color=c=blue:s=320x240:d=1',
+                '-c:v','libx264','-pix_fmt','yuv420p','-y',str(folder/'clip.mp4')],check=True)
 text,status=asyncio.run(_read(folder/'sample.png'))
 assert status=='complete' and 'PHOTO' in text.upper(),(text,status)
 print('Native Windows OCR:',text)
@@ -88,10 +91,15 @@ save_folder(folder,state)
         subprocess.run([str(app/'runtime/python.exe'),'-X','utf8',str(script),str(app/'project/work'),str(photos),str(data/'work')],
                        env=clean, check=True, timeout=120)
         post('/api/library/scan'); scanned = wait_job()
-        assert scanned['library']['photos'] == 1 and scanned['library']['ocr_completed'] == 1, scanned
+        assert scanned['library']['photos'] == 1 and scanned['library']['videos'] == 1 and scanned['library']['ocr_completed'] == 1, scanned
         rows = json.loads((data/'outputs/full_results.json').read_text(encoding='utf-8')); identifier=rows[0]['uuid']
         assert rows[0]['thumbnail'] and (data/'outputs'/rows[0]['thumbnail']).exists()
         assert (data/'work/activity_inventory.json').exists() and (data/'outputs/duplicate_groups.json').exists()
+        activity=json.loads((data/'work/activity_inventory.json').read_text(encoding='utf-8'))['items']
+        video=next(item for item in activity if item['kind']=='video')
+        assert video['thumbnail'] and video['bytes']>0
+        with opener.open(url+'/api/activity-preview/'+video['uuid'],timeout=120) as response:
+            assert response.status==200 and response.headers.get('Content-Type')=='video/mp4' and response.read(16)
         if args.inference:
             model = get('/api/setup')['models'][0]
             post('/api/models/download', {'id':model['id']})
@@ -113,8 +121,9 @@ save_folder(folder,state)
         # Only a synthetic fixture is recycled, never a user file or a permanent unlink.
         status=get('/api/status'); assert status['trash_label']=='回收站'
         import uuid
-        deleted=post('/api/trash',{'requestId':str(uuid.uuid4()),'uuids':[identifier],'confirmed':True})
-        assert deleted['deleted']==[identifier] and not (photos/'sample.png').exists()
+        ids=[identifier,video['uuid']]
+        deleted=post('/api/trash',{'requestId':str(uuid.uuid4()),'uuids':ids,'confirmed':True})
+        assert set(deleted['deleted'])==set(ids) and not (photos/'sample.png').exists() and not (photos/'clip.mp4').exists()
         post('/api/app/quit'); assert process.wait(timeout=150)==0
         assert not record.exists()
         print('PASS: native Windows launch, isolated Python, OCR, folder scan, activities, duplicates, '

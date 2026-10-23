@@ -10,6 +10,9 @@ Git 仓库包含项目源码、文档和程序生成的测试样例，不包含�
 | Pillow | 图片缩略图与感知哈希 | [MIT-CMU](https://github.com/python-pillow/Pillow/blob/main/LICENSE) |
 | MLX、MLX-VLM | 可选本地视觉推理 | [MLX MIT](https://github.com/ml-explore/mlx)、[MLX-VLM MIT](https://github.com/Blaizzy/mlx-vlm) |
 | Transformers、Hugging Face Hub | 可选模型加载与下载 | [Transformers Apache-2.0](https://github.com/huggingface/transformers)、[Hub Apache-2.0](https://github.com/huggingface/huggingface_hub) |
+| llama.cpp | Windows 本地视觉推理引擎 | [MIT](https://github.com/ggml-org/llama.cpp/blob/b11829/LICENSE)，原包 OpenMP 通知保留 |
+| ImageIO-FFmpeg / FFmpeg 7.1 | Windows 视频缩略图与兼容预览 | [ImageIO BSD-2-Clause](https://github.com/imageio/imageio-ffmpeg/blob/v0.6.0/LICENSE)、FFmpeg 与外部编码库保留 GPL/LGPL 许可；完整许可、运行时通知及来源见 `third_party/licenses/` |
+| Send2Trash / PyWinRT | Windows 回收站与系统 OCR | 上游及 wheel 自带许可证，固定版本见 Windows manifest |
 | Tokenizers | 本地模型分词 | [Apache-2.0](https://github.com/huggingface/tokenizers/blob/v0.23.3/LICENSE) |
 | Qwen3.5-4B MLX 4-bit 权重 | 参考增强模型，单独下载 | [模型卡及 Apache-2.0 声明](https://huggingface.co/lmstudio-community/Qwen3.5-4B-MLX-4bit) |
 

@@ -51,7 +51,9 @@ def scan(root=None, output=OUT, state=STATE_DIR, ocr=None):
             if not available:
                 skipped += 1
                 continue
-            identifier = str(uuid.uuid5(uuid.NAMESPACE_URL, os.path.normcase(str(path))))
+            info = path.stat()
+            identity = os.path.normcase(str(path)) + '|' + str(info.st_ino) + '|' + str(getattr(info, 'st_birthtime_ns', 0))
+            identifier = str(uuid.uuid5(uuid.NAMESPACE_URL, identity))
             fingerprint = signature(path)
             date = datetime.datetime.fromtimestamp(path.stat().st_mtime).astimezone().isoformat()
             video = path.suffix.lower() in VIDEOS
@@ -60,7 +62,8 @@ def scan(root=None, output=OUT, state=STATE_DIR, ocr=None):
             base = dict(uuid=identifier, filename=path.name, date=date, favorite=False, hidden=False,
                         screenshot=screenshot, original=str(path), preview=str(path), source='original')
             existing = cache.execute('SELECT fingerprint,data FROM results WHERE uuid=?', (identifier,)).fetchone()
-            if existing and existing[0] == json.dumps(fingerprint) and (output / thumbnail).is_file():
+            if (existing and existing[0] == json.dumps(fingerprint) and (output / thumbnail).is_file()
+                    and (video or json.loads(existing[1]).get('ocr_status') == 'complete')):
                 row = json.loads(existing[1])
             else:
                 row = dict(base, thumbnail='', ocr='', visual=[], analysis_status='complete', ocr_status='not_applicable')
