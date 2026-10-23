@@ -119,7 +119,7 @@ class RuntimeJobs:
                 try:
                     if sys.platform == 'win32':
                         if self.state['kind'] != 'recognize':
-                            process.terminate()
+                            self._kill(process)
                     elif self.state['kind'] == 'recognize':
                         process.terminate()
                     else:
@@ -194,7 +194,8 @@ class RuntimeJobs:
     @staticmethod
     def _kill(process):
         if sys.platform == 'win32':
-            subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'], capture_output=True,
+            taskkill = Path(os.environ.get('SystemRoot', 'C:/Windows')) / 'System32/taskkill.exe'
+            subprocess.run([str(taskkill), '/PID', str(process.pid), '/T', '/F'], capture_output=True,
                            creationflags=subprocess.CREATE_NO_WINDOW, timeout=15)
         else:
             os.killpg(process.pid, signal.SIGKILL)

@@ -85,13 +85,19 @@ def native(action, ids=None, state=STATE_DIR, recycler=None):
         path, root = Path(item.get('path', '')), Path(item.get('root', ''))
         if not item or not local_regular(path, root) or signature(path) != item.get('signature'):
             return {'ok': False, 'error': '部分文件已变化、已移走或不在本机，请重新扫描后再试。'}
+        if sys.platform == 'win32':
+            import ctypes
+            if ctypes.windll.kernel32.GetDriveTypeW(ctypes.c_wchar_p(path.anchor)) != 3:
+                return {'ok':False, 'error':'只支持将本机固定磁盘上的文件移到回收站；网络或可移动磁盘请使用系统文件管理器处理。'}
         paths.append(path)
     if action == 'check':
         return {'ok': True}
     if action != 'trash' or not paths:
         raise ValueError('操作无效。')
     if recycler is None:
-        from send2trash import send2trash
+        # Require IFileOperation + FOFX_RECYCLEONDELETE; never use the legacy
+        # SHFileOperation fallback, which can delete permanently on some volumes.
+        from send2trash.win.modern import send2trash
         recycler = send2trash
     # Recycle Bin is the only deletion mechanism. Never fall back to unlink.
     recycler([str(path) for path in paths])

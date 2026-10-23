@@ -47,7 +47,7 @@ class SetupApiTests(unittest.TestCase):
         self.jobs.models.download.assert_not_called()
 
     def test_every_task_route_rejects_wrong_origin_and_token_before_actions(self):
-        routes = ['/api/library/scan', '/api/tasks/stop', '/api/models/download',
+        routes = ['/api/library/scan', '/api/library/folder', '/api/tasks/stop', '/api/models/download',
                   '/api/models/pause', '/api/models/select', '/api/recognition/start', '/api/app/quit']
         for route in routes:
             for headers in ({'Origin': 'https://example.invalid'}, {'X-Review-Token': 'invalid'}):
