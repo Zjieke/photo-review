@@ -2,17 +2,31 @@
 import os
 for key,value in {'HF_HUB_OFFLINE':'1','TRANSFORMERS_OFFLINE':'1','HF_HUB_DISABLE_TELEMETRY':'1','TOKENIZERS_PARALLELISM':'false'}.items():
  os.environ[key]=value
-import hashlib,json,re,sqlite3,time,subprocess,sys
+import contextlib,hashlib,json,re,signal,sqlite3,time,subprocess,sys,threading
 from pathlib import Path
 from PIL import Image
 from multidim import DIMENSIONS
 from qwen_local_cache import acquire_job_lock, initialize_cache, pending_ids, save_result
+from app_paths import CODE_DIR, DATA_ROOT as ROOT, STATE_DIR as WORK, OUT, ensure_data_dirs
 
-ROOT=Path(__file__).resolve().parent.parent
-WORK=ROOT/'work'
-OUT=ROOT/'outputs'
 DEFAULT_MODEL='Qwen3.5-4B-MLX-4bit'
 BASE_VERSION='qwen35-photo-v1'
+stop_requested=False
+
+def request_stop(signum=None,frame=None):
+ """Checkpoint the current image, publish its labels, then release the job lock."""
+ global stop_requested
+ stop_requested=True
+
+@contextlib.contextmanager
+def graceful_stop_signals():
+ previous={}
+ if threading.current_thread() is threading.main_thread():
+  for signum in (signal.SIGTERM,signal.SIGINT):
+   previous[signum]=signal.signal(signum,request_stop)
+ try:yield
+ finally:
+  for signum,handler in previous.items():signal.signal(signum,handler)
 
 def atomic(path,obj):
  tmp=path.with_suffix('.tmp');tmp.write_text(json.dumps(obj,ensure_ascii=False));tmp.replace(path)
@@ -109,7 +123,8 @@ def published_results():
 def publish():
  results,current=published_results()
  atomic(WORK/'qwen_visual_results.json',results)
- result=subprocess.run([sys.executable,str(WORK/'build_multidim.py')],cwd=ROOT,capture_output=True,text=True,timeout=90)
+ environment=dict(os.environ,PHOTO_REVIEW_DATA_DIR=str(ROOT),PYTHONDONTWRITEBYTECODE='1')
+ result=subprocess.run([sys.executable,str(CODE_DIR/'build_multidim.py')],cwd=ROOT,env=environment,capture_output=True,text=True,timeout=90)
  if result.returncode:raise RuntimeError('页面更新失败：'+result.stderr[-300:])
  done=sum(u in current for u in queue)
  uncertain=sum(current[u].get('uncertain',False) for u in queue if u in current)
@@ -120,14 +135,14 @@ def publish():
  return done,uncertain,failed
 
 def main():
- global start,MODEL,VERSION,source,queue,conn,model,processor,config
+ global start,MODEL,VERSION,source,queue,conn,model,processor,config,stop_requested
  start=time.time()
- OUT.mkdir(parents=True,exist_ok=True)
- WORK.mkdir(parents=True,exist_ok=True)
+ stop_requested=False
+ ensure_data_dirs(ROOT)
  model_path,MODEL,VERSION=model_settings()
  try:os.nice(5)
  except OSError:pass
- with acquire_job_lock(WORK/'qwen-local-job.lock'):
+ with graceful_stop_signals(),acquire_job_lock(WORK/'qwen-local-job.lock'):
   inventory=OUT/'full_results.json'
   rows=json.loads(inventory.read_text()) if inventory.exists() else []
   deleted=deleted_ids(OUT)
@@ -147,6 +162,7 @@ def main():
     progress('running',total=total,processed=done)
     since_publish=0;last_publish=time.time()
     for identifier in pending:
+     if stop_requested:break
      row=source[identifier];started=time.time()
      try:
       result=run_one(row)
@@ -155,13 +171,14 @@ def main():
      except Exception as error:
       save_result(conn,identifier,VERSION,error=type(error).__name__+': '+str(error)[:160],seconds=time.time()-started)
      since_publish+=1
-     progress('running',total=total,processed=done,last_seconds=round(time.time()-started,1))
+     progress('pausing' if stop_requested else 'running',total=total,processed=done,last_seconds=round(time.time()-started,1))
+     if stop_requested:break
      if since_publish>=20 or time.time()-last_publish>90:
       complete,uncertain,failed=publish()
       progress('running',total=total,processed=complete,uncertain=uncertain,failed=failed)
       since_publish=0;last_publish=time.time();mx.clear_cache()
    complete,uncertain,failed=publish()
-   progress('completed',total=total,processed=complete,uncertain=uncertain,failed=failed)
+   progress('paused' if stop_requested else 'completed',total=total,processed=complete,uncertain=uncertain,failed=failed)
   except Exception as error:
    progress('failed',total=total,error=str(error)[:300])
    raise

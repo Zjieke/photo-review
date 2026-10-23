@@ -2,7 +2,7 @@
 import collections,hashlib,json,math,sqlite3,time
 from pathlib import Path
 from PIL import Image,ImageStat,ImageOps
-ROOT=Path(__file__).resolve().parent.parent;WORK=ROOT/'work';OUT=ROOT/'outputs'
+from app_paths import DATA_ROOT as ROOT, STATE_DIR as WORK, OUT, ensure_data_dirs
 def atomic(path,data):
  tmp=path.with_suffix('.tmp');tmp.write_text(json.dumps(data,ensure_ascii=False));tmp.replace(path)
 def fingerprint(path):
@@ -48,7 +48,10 @@ class Tree:
   return result
 
 def run():
- sources=json.loads((OUT/'full_results.json').read_text());inventory=json.loads((WORK/'activity_inventory.json').read_text())['items'];metadata={r['uuid']:r for r in inventory}
+ ensure_data_dirs(OUT.parent)
+ sources=json.loads((OUT/'full_results.json').read_text()) if (OUT/'full_results.json').exists() else []
+ inventory=json.loads((WORK/'activity_inventory.json').read_text())['items'] if (WORK/'activity_inventory.json').exists() else []
+ metadata={r['uuid']:r for r in inventory}
  deleted={u for p in (OUT/'delete-receipts').glob('*.json') for receipt in [json.loads(p.read_text())] if receipt.get('state')=='done' for u in receipt.get('ids',[])}
  records=[r for r in sources if not r.get('hidden') and r['uuid'] not in deleted];cache_path=WORK/'duplicate_hash_cache.json';cache=json.loads(cache_path.read_text()) if cache_path.exists() else {};hashes={};exact_buckets=collections.defaultdict(list);originals={};skipped=0
  progress=OUT/'duplicate_scan_progress.json'

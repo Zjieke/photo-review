@@ -1,9 +1,24 @@
 """Resumable local analysis of all still images in the Photos library."""
-import collections, concurrent.futures, json, os, sqlite3, time
+import collections, concurrent.futures, contextlib, json, os, sqlite3, time
 from pathlib import Path
 import osxphotos
+from app_paths import DATA_ROOT, OUT, ensure_data_dirs
 
-ROOT=Path(__file__).resolve().parent; OUT=ROOT.parent/'outputs'
+ROOT=DATA_ROOT
+
+def analysis_cache_path():
+    """Move a legacy output-side checkpoint without losing committed results."""
+    destination=OUT.parent/'work'/'analysis_cache.sqlite3'
+    legacy=OUT/'analysis_cache.sqlite3'
+    if not destination.exists() and legacy.exists():
+        temporary=destination.with_suffix('.migration')
+        try:
+            with contextlib.closing(sqlite3.connect(legacy.as_uri()+'?mode=ro',uri=True)) as source:
+                with contextlib.closing(sqlite3.connect(temporary)) as target:source.backup(target)
+            temporary.replace(destination)
+        finally:
+            temporary.unlink(missing_ok=True)
+    return destination
 
 def analyze(row):
     import objc, Vision, Quartz
@@ -38,7 +53,7 @@ def analyze(row):
         return result
 
 def main():
-    OUT.mkdir(parents=True,exist_ok=True);(OUT/'previews').mkdir(exist_ok=True)
+    ensure_data_dirs(OUT.parent);(OUT/'previews').mkdir(exist_ok=True)
     db=osxphotos.PhotosDB();photos=db.photos()
     old=json.loads((OUT/'full_results.json').read_text()) if (OUT/'full_results.json').exists() else []
     numbers={r['uuid']:r['number'] for r in old};next_number=max(numbers.values(),default=0)+1
@@ -53,7 +68,7 @@ def main():
         rows.append(base|dict(number=numbers[p.uuid],original=original,preview=preview,source='original' if original else 'preview' if preview else 'unavailable'))
     (OUT/'full_inventory.json').write_text(json.dumps(rows,ensure_ascii=False))
     (OUT/'videos_not_analyzed.json').write_text(json.dumps(videos,ensure_ascii=False))
-    conn=sqlite3.connect(OUT/'analysis_cache.sqlite3')
+    conn=sqlite3.connect(analysis_cache_path())
     conn.execute('CREATE TABLE IF NOT EXISTS results (uuid TEXT PRIMARY KEY, fingerprint TEXT, data TEXT)')
     def fingerprint(r):
         if not r['preview']:return 'missing'

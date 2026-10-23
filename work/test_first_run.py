@@ -20,9 +20,10 @@ from qwen_local_cache import initialize_cache, save_result
 
 SOURCE = Path(__file__).resolve().parent
 BUILD_SOURCES = (
-    'build_multidim.py', 'multidim.py', 'review_template.html', 'review_app.js',
+    'app_paths.py', 'build_multidim.py', 'multidim.py', 'review_template.html', 'review_app.js',
     'review_style.css', 'review_motion.js', 'deletion_ui.js', 'activity_section.html',
     'activity_style.css', 'activity_ui.js', 'duplicate_section.html', 'duplicate_ui.js',
+    'setup_section.html', 'setup_style.css', 'setup_ui.js',
 )
 
 
@@ -80,8 +81,73 @@ class FirstBuildTests(unittest.TestCase):
             self.assertFalse(data['items'][0]['trial'])
             self.assertFalse((work / 'vlm_results.json').exists())
 
+    def test_readonly_code_builds_into_an_external_data_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            source = base / 'source'
+            source.mkdir()
+            work, unused_output = project(source)
+            data = base / 'user data'
+            output = data / 'outputs'
+            row = record('external-preview')
+            write_image(output, row)
+            (output / 'full_results.json').write_text(json.dumps([row]))
+            original_files = {path.relative_to(source): path.read_bytes()
+                              for path in source.rglob('*') if path.is_file()}
+            for path in work.iterdir():
+                path.chmod(0o444)
+            work.chmod(0o555)
+            source.chmod(0o555)
+            try:
+                subprocess.run([sys.executable, str(work / 'build_multidim.py')],
+                               env=dict(os.environ, PHOTO_REVIEW_DATA_DIR=str(data),
+                                        PYTHONDONTWRITEBYTECODE='1'),
+                               check=True, capture_output=True, text=True)
+                payload = json.loads((output / '多标签清单.json').read_text())
+                self.assertEqual([item['uuid'] for item in payload['items']], [row['uuid']])
+                self.assertTrue((data / 'work' / 'multidim-build.lock').exists())
+                self.assertTrue((data / 'work' / 'models').is_dir())
+                self.assertFalse(unused_output.exists())
+                self.assertEqual({path.relative_to(source): path.read_bytes()
+                                  for path in source.rglob('*') if path.is_file()}, original_files)
+            finally:
+                source.chmod(0o755)
+                work.chmod(0o755)
+                for path in work.iterdir():
+                    path.chmod(0o644)
+
 
 class QwenFirstRunTests(unittest.TestCase):
+    def test_pause_finishes_one_image_and_resume_reuses_that_result(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            work, output = project(root)
+            rows = [record('first'), record('second')]
+            for row in rows:
+                write_image(output, row)
+            (output / 'full_results.json').write_text(json.dumps(rows))
+            seen = []
+            def classify(row):
+                seen.append(row['uuid'])
+                qwen.signal.raise_signal(qwen.signal.SIGTERM)
+                return label('saved before stopping')
+            with patch.multiple(qwen, ROOT=root, WORK=work, OUT=output), \
+                 patch.object(qwen, 'model_settings', return_value=(work / 'model', qwen.DEFAULT_MODEL, qwen.BASE_VERSION)), \
+                 patch.object(qwen, 'load_local_model', return_value=(None, None, None)), \
+                 patch.object(qwen, 'run_one', side_effect=classify), \
+                 patch.object(qwen, 'mx', SimpleNamespace(clear_cache=lambda: None), create=True), \
+                 patch.object(qwen.os, 'nice'):
+                qwen.main()
+                status = json.loads((output / 'local_model_progress.json').read_text())
+                self.assertEqual((status['phase'], status['processed'], status['total']), ('paused', 1, 2))
+                preserved = json.loads((work / 'qwen_visual_results.json').read_text())
+                self.assertEqual(set(preserved), {'second'})
+                qwen.main()
+            self.assertEqual(seen, ['second', 'first'])
+            with sqlite3.connect(work / 'qwen_cache.sqlite3') as connection:
+                self.assertEqual(connection.execute("SELECT COUNT(*) FROM results WHERE status='complete'").fetchone()[0], 2)
+            self.assertEqual(json.loads((work / 'qwen_visual_results.json').read_text())['second'], preserved['second'])
+
     def test_model_path_is_configurable_and_has_a_distinct_cache_version(self):
         with tempfile.TemporaryDirectory() as directory:
             custom = Path(directory) / 'custom-model'
@@ -204,6 +270,55 @@ class QwenFirstRunTests(unittest.TestCase):
 
 
 class StableNumberTests(unittest.TestCase):
+    def test_activity_inventory_uses_runtime_state_on_a_first_scan(self):
+        spec = importlib.util.spec_from_file_location('synthetic_activity_inventory', SOURCE / 'build_activity_inventory.py')
+        activity = importlib.util.module_from_spec(spec)
+        from datetime import datetime
+        photo = SimpleNamespace(uuid='local-photo', date=datetime(2026, 1, 2, 12),
+                                hidden=False, favorite=False, ismovie=False, path=None,
+                                path_derivatives=[], original_filesize=2000,
+                                screenshot=False, original_filename='synthetic.jpg')
+        fake_photos = SimpleNamespace(PhotosDB=lambda: SimpleNamespace(photos=lambda: [photo]))
+        with patch.dict(sys.modules, {'osxphotos': fake_photos}):
+            spec.loader.exec_module(activity)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / 'outputs'
+            state = root / 'work'
+            with patch.multiple(activity, ROOT=state, OUT=output), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                activity.main()
+            inventory = json.loads((state / 'activity_inventory.json').read_text())
+            self.assertEqual([item['uuid'] for item in inventory['items']], ['local-photo'])
+            self.assertEqual(json.loads((state / 'activity_media_paths.json').read_text()), {})
+            self.assertTrue((output / 'previews').is_dir())
+
+    def test_legacy_analysis_cache_moves_to_runtime_state_without_changing_source(self):
+        spec = importlib.util.spec_from_file_location('synthetic_full_analysis_cache', SOURCE / 'full_analysis.py')
+        analysis = importlib.util.module_from_spec(spec)
+        with patch.dict(sys.modules, {'osxphotos': SimpleNamespace(PhotosDB=None)}):
+            spec.loader.exec_module(analysis)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / 'outputs'
+            output.mkdir()
+            (root / 'work').mkdir()
+            legacy = output / 'analysis_cache.sqlite3'
+            with sqlite3.connect(legacy) as connection:
+                connection.execute('CREATE TABLE results(uuid TEXT PRIMARY KEY, fingerprint TEXT, data TEXT)')
+                connection.execute('INSERT INTO results VALUES(?,?,?)', ('saved-image', 'v1', '{"analysis_status":"complete"}'))
+            original_bytes = legacy.read_bytes()
+            with patch.object(analysis, 'OUT', output):
+                destination = analysis.analysis_cache_path()
+                self.assertEqual(destination, root / 'work' / 'analysis_cache.sqlite3')
+                with sqlite3.connect(destination) as connection:
+                    self.assertEqual(connection.execute('SELECT uuid FROM results').fetchall(), [('saved-image',)])
+                    connection.execute('INSERT INTO results VALUES(?,?,?)', ('new-image', 'v1', '{}'))
+                analysis.analysis_cache_path()
+                with sqlite3.connect(destination) as connection:
+                    self.assertEqual(connection.execute('SELECT COUNT(*) FROM results').fetchone()[0], 2)
+            self.assertEqual(legacy.read_bytes(), original_bytes)
+
     def test_rescan_keeps_existing_numbers_when_an_older_photo_is_added(self):
         # Import with a PhotosDB stub; this test never opens the real Photos library.
         spec = importlib.util.spec_from_file_location('synthetic_full_analysis', SOURCE / 'full_analysis.py')

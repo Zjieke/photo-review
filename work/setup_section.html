@@ -1,0 +1,35 @@
+<section id="setupWelcome" class="setup-welcome" aria-labelledby="setupWelcomeTitle" hidden>
+ <span class="setup-welcome-mark" aria-hidden="true">✦</span>
+ <h2 id="setupWelcomeTitle">从这台 Mac 的照片开始</h2>
+ <p>读取图库、识别文字并整理标签。先用本机基础识别，需要时再下载模型增强画面识别。</p>
+ <button id="setupWelcomeOpen" class="primary">开始整理图库</button>
+ <p class="setup-welcome-note">照片和视频留在本机。扫描不会删除任何项目。</p>
+</section>
+<dialog id="setupDialog" class="setup-dialog" aria-labelledby="setupTitle" aria-describedby="setupIntro">
+ <div class="dialog-head"><h2 id="setupTitle">图库与模型</h2><button id="setupClose" autofocus>关闭 · Esc</button></div>
+ <p id="setupIntro" class="muted">读取系统照片，在这台电脑完成整理。</p>
+ <div id="setupConnectionError" class="setup-alert" role="alert" hidden><span id="setupConnectionMessage"></span><button id="setupRetry">重试连接</button></div>
+ <p id="setupPlatform" class="setup-platform" hidden></p>
+ <section class="setup-block" aria-labelledby="setupLibraryTitle">
+  <div class="setup-section-heading"><div><h3 id="setupLibraryTitle">本机基础识别</h3><p id="setupLibrarySummary" class="muted">正在读取图库状态…</p></div><button id="setupScan" class="primary" disabled>开始整理图库</button></div>
+  <p class="setup-help">首次使用时，请按系统提示允许照片访问。基础识别不需要下载模型。</p>
+  <div id="setupJob" class="setup-job" hidden>
+   <div class="setup-job-heading"><strong id="setupJobTitle"></strong><button id="setupStop">暂停任务</button></div>
+   <p id="setupJobMessage" role="status"></p>
+   <progress id="setupJobProgress" max="100" aria-label="整理任务进度"></progress>
+   <p id="setupJobCount" class="setup-meter-label"></p>
+   <button id="setupJobRetry" hidden>重试</button>
+  </div>
+  <div id="setupResults" class="setup-results" hidden><p>图库已更新，点击后查看最新整理结果。</p><button id="setupViewResults" class="primary">查看整理结果</button></div>
+ </section>
+ <section class="setup-block" aria-labelledby="setupModelsTitle">
+  <div class="setup-section-heading"><div><h3 id="setupModelsTitle">增强画面识别 <span class="setup-optional">可选</span></h3><p class="muted">识别游戏、商品、场景等更细的标签。</p></div></div>
+  <p class="setup-help">下载模型需要联网；下载完成后，看图识别在本机进行，照片不会上传。可暂停下载，下次继续。</p>
+  <div id="setupModels" class="setup-models"></div>
+  <p id="setupModelsEmpty" class="muted" hidden>暂时没有可下载的模型。</p>
+ </section>
+ <p id="setupActionError" class="setup-alert" role="alert" hidden></p>
+ <p id="setupActionNotice" class="setup-notice" role="status" hidden></p>
+ <div class="setup-footer"><span>关闭此窗口后，后台任务会继续。</span><button id="setupQuit" hidden>退出程序</button></div>
+ <div id="setupQuitConfirm" class="setup-quit-confirm" hidden><p>退出后，当前下载与识别会停止。再次打开程序可继续。</p><div class="actions"><button id="setupQuitCancel">继续使用</button><button id="setupQuitAccept">退出程序</button></div></div>
+</dialog>

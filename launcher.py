@@ -71,13 +71,16 @@ def demo_handler(directory, instance):
     return DemoHandler
 
 
-def serve(handler, port, instance, no_browser=False):
+def serve(handler, port, instance, no_browser=False, instance_lock=None):
     print(f'[启动] 绑定 127.0.0.1:{port}', flush=True)
     try:
         server = LocalHTTPServer(('127.0.0.1', port), handler)
     except OSError as exc:
-        raise RuntimeError(f'端口 {port} 无法使用；不会复用该端口上的其他服务。'
-                           '请关闭占用程序，或使用 --port 8779。') from exc
+        if instance_lock:
+            server = LocalHTTPServer(('127.0.0.1', 0), handler)
+        else:
+            raise RuntimeError(f'端口 {port} 无法使用；不会复用该端口上的其他服务。'
+                               '请关闭占用程序，或使用 --port 8779。') from exc
     server.allowed_hosts = {'127.0.0.1', 'localhost'}
     server.daemon_threads = True
     print('[启动] 端口已绑定，启动请求线程', flush=True)
@@ -92,6 +95,8 @@ def serve(handler, port, instance, no_browser=False):
             health = json.load(response)
         if health.get('application') != 'photo-review' or health.get('instance') != instance:
             raise RuntimeError('服务身份校验失败，未打开浏览器。')
+        if instance_lock:
+            instance_lock.publish(url, instance)
         faulthandler.cancel_dump_traceback_later()
         print(f'已就绪：{url}', flush=True)
         print('关闭终端或按 Ctrl+C 停止服务；关闭浏览器标签页不会停止服务。', flush=True)
@@ -104,6 +109,8 @@ def serve(handler, port, instance, no_browser=False):
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+        if 'review_server' in sys.modules:
+            sys.modules['review_server'].close_runtime()
 
 
 def main(argv=None):
@@ -112,9 +119,11 @@ def main(argv=None):
     actions.add_argument('--demo', action='store_true', help='仅标准库的合成演示，不访问照片图库')
     actions.add_argument('--scan', action='store_true', help='明确扫描本机照片图库，完成后退出')
     actions.add_argument('--build-helper', action='store_true', help='编译并临时签名 macOS 照片助手')
-    parser.add_argument('--port', type=int, default=8778, help='本机端口，默认 8778')
+    parser.add_argument('--packaged', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--port', type=int, default=int(os.environ.get('PHOTO_REVIEW_PORT', '8778')), help='本机端口，默认 8778')
     parser.add_argument('--no-browser', action='store_true', help='启动后不自动打开浏览器')
     args = parser.parse_args(argv)
+    args.no_browser = args.no_browser or os.environ.get('PHOTO_REVIEW_NO_BROWSER') == '1'
     if sys.version_info < (3, 11):
         parser.error('需要 Python 3.11 或更新版本。')
     if not 1 <= args.port <= 65535:
@@ -122,7 +131,28 @@ def main(argv=None):
     if os.environ.get('PHOTO_REVIEW_STARTUP_DIAGNOSTICS') == '1':
         # Opt-in diagnostics for hung CI startup; contains stacks, not library data.
         faulthandler.dump_traceback_later(10, repeat=True)
+    instance_lock = None
+    if args.packaged:
+        os.environ.setdefault('PHOTO_REVIEW_DATA_DIR', str(Path.home() / 'Library/Application Support/Photo Review'))
+        os.environ['PHOTO_REVIEW_PACKAGED'] = '1'
+        os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
+        os.environ['HF_HUB_DISABLE_TELEMETRY'] = '1'
+        sys.dont_write_bytecode = True
+    sys.path.insert(0, str(WORK))
+    from app_paths import OUT, DATA_ROOT, STATE_DIR, ensure_data_dirs
     try:
+        if args.packaged:
+            ensure_data_dirs()
+            for directory in (DATA_ROOT, OUT, STATE_DIR):
+                directory.chmod(0o700)
+            from instance_lock import InstanceLock
+            instance_lock = InstanceLock(STATE_DIR)
+            if not instance_lock.owned:
+                url = instance_lock.existing_url()
+                if not args.no_browser:
+                    webbrowser.open(url)
+                print(f'已打开正在运行的照片整理：{url}', flush=True)
+                return 0
         if args.build_helper:
             run_script(ROOT / 'scripts/build_helper.py')
             return 0
@@ -146,12 +176,12 @@ def main(argv=None):
                 raise RuntimeError('当前真实图库版本只支持 macOS；可以用 --demo 查看合成演示。')
             require_modules(('PIL',))
             run_script(WORK / 'build_multidim.py')
-            if not (ROOT / 'outputs/full_results.json').exists():
-                print('当前没有扫描记录，打开空界面。需主动运行 python3 launcher.py --scan 才会读取图库。', flush=True)
+            if not (OUT / 'full_results.json').exists():
+                print('当前没有扫描记录，打开空界面。可在网页“图库与模型”中开始扫描。', flush=True)
             os.environ['PHOTO_REVIEW_INSTANCE_ID'] = instance
             sys.path.insert(0, str(WORK))
             import review_server
-            serve(review_server.Handler, args.port, instance, args.no_browser)
+            serve(review_server.Handler, args.port, instance, args.no_browser, instance_lock)
         return 0
     except KeyboardInterrupt:
         print('\n服务已停止。', flush=True)
@@ -161,6 +191,8 @@ def main(argv=None):
         return 1
     finally:
         faulthandler.cancel_dump_traceback_later()
+        if instance_lock:
+            instance_lock.close()
 
 
 if __name__ == '__main__':

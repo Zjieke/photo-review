@@ -37,6 +37,7 @@ window.fetch=async function(url,options){const path=String(url).split('?')[0];le
 if(path==='/api/status')data={ok:true,token:'synthetic-token',authorization:'authorized',deleted:[]};
 else if(path==='/api/local-model-progress')data={phase:'running',processed:63,total:96,failed:0};
 else if(path==='/api/local-model-updates')data={items:[],updated_at:1};
+else if(path==='/api/setup')data={ok:true,token:'synthetic-token',packaged:false,platform:{supported:false,model_supported:false,message:'合成演示不读取图库，也不下载模型。'},library:{has_scan:true,photos:96,videos:12},job:{kind:null,state:'idle',message:''},models:[{id:'qwen35-4b',name:'Qwen3.5 4B · 4-bit',description:'在本机补充画面与内容标签',size_bytes:3061139393,total_bytes:3061139393,downloaded_bytes:0,state:'not_installed',selected:false}],library_revision:1};
 else if(path==='/api/authorize')data={ok:true,authorization:'authorized'};
 else throw new Error('合成演示禁止删除照片或访问真实服务。');
 return {ok:true,status:200,json:async()=>data};};
@@ -44,6 +45,8 @@ return {ok:true,status:200,json:async()=>data};};
 app=(ROOT/'review_app.js').read_text().replace('/*__DATA__*/',encode(payload)).replace('/*__ACTIVITY_DATA__*/',encode(activity)).replace('/*__DELETION_UI__*/',(ROOT/'deletion_ui.js').read_text()).replace('/*__ACTIVITY_UI__*/',(ROOT/'activity_ui.js').read_text()).replace('/*__DUPLICATE_UI__*/',(ROOT/'duplicate_ui.js').read_text().replace('/*__DUPLICATE_DATA__*/',encode(duplicates))).replace('/*__REVIEW_MOTION__*/',(ROOT/'review_motion.js').read_text())
 app=app.replace("const storageKey='photo-label-review-oct19'", "const storageKey='photo-label-review-synthetic-fixture'").replace('photo-activity-names-v1','photo-activity-names-synthetic-fixture')
 html=(ROOT/'review_template.html').read_text().replace('/*__REVIEW_APP__*/',mock+app).replace('/*__REVIEW_STYLE__*/',(ROOT/'review_style.css').read_text()).replace('/*__ACTIVITY_STYLE__*/',(ROOT/'activity_style.css').read_text()).replace('/*__ACTIVITY_SECTION__*/',(ROOT/'activity_section.html').read_text()).replace('/*__DUPLICATE_SECTION__*/',(ROOT/'duplicate_section.html').read_text())
+for marker,filename in [('SETUP_SECTION','setup_section.html'),('SETUP_STYLE','setup_style.css'),('SETUP_UI','setup_ui.js')]:
+    html=html.replace('/*__'+marker+'__*/',(ROOT/filename).read_text())
 html=html.replace('<title>照片整理 · 本地图库</title>','<title>照片整理 · 合成界面演示</title>').replace('<body data-input="pointer">','<body data-input="pointer"><div role="note" style="padding:7px 16px;text-align:center;background:#fbf3e6;color:#8a5a21;font-size:12px">合成演示数据 · 不连接照片图库 · 删除操作已隔离</div>')
 assert '/*__' not in html,'Unresolved template marker'
 tmp=DEST/'index.html.tmp';tmp.write_text(html);tmp.replace(DEST/'index.html')

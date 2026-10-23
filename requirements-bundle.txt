@@ -1,0 +1,5 @@
+# Bundled runtime only. Install on a clean Apple Silicon CPython 3.12 runtime.
+# Model weights are deliberately NOT part of the application.
+-r requirements.txt
+-r requirements-model.txt
+-c requirements-bundle-lock.txt

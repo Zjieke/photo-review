@@ -1,7 +1,6 @@
 """Loopback review server; only explicit, authenticated selection requests can trash assets."""
 import re
 import mimetypes
-import base64
 import os
 import json
 import secrets
@@ -12,19 +11,17 @@ from http.server import BaseHTTPRequestHandler
 from local_http import LocalHTTPServer as ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit, parse_qs
+from app_paths import CODE_DIR, STATE_DIR, OUT, ensure_data_dirs
 
-ROOT = Path(__file__).resolve().parent
-OUT = ROOT.parent / 'outputs'
-HELPER = ROOT / 'native/截图清理助手.app/Contents/MacOS/PhotosTrash'
+ensure_data_dirs()
+ROOT = STATE_DIR
+HELPER = CODE_DIR / 'native/截图清理助手.app/Contents/MacOS/PhotosTrash'
 ORIGIN = 'http://127.0.0.1:8778'
 INSTANCE_ID = os.environ.get('PHOTO_REVIEW_INSTANCE_ID', secrets.token_urlsafe(24))
 TOKEN = secrets.token_urlsafe(32)
-PASSWORD_FILE=ROOT/'lan-access-password.txt'
-if not PASSWORD_FILE.exists():
-    fd=os.open(PASSWORD_FILE,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
-    with os.fdopen(fd,'w') as f:f.write(secrets.token_urlsafe(12))
-LAN_PASSWORD=PASSWORD_FILE.read_text().strip()
 LOCK = threading.Lock()
+RUNTIME = None
+RUNTIME_LOCK = threading.Lock()
 
 def allowed_asset_ids(label_items, activity_items):
     """Merge analyzed photos and activity media, with protection winning conflicts."""
@@ -51,6 +48,25 @@ VIDEO_PREVIEW_LOCK=threading.Lock()
 ACTIVITY_MEDIA=json.loads((ROOT/'activity_media_paths.json').read_text()) if (ROOT/'activity_media_paths.json').exists() else {}
 JOURNAL = OUT/'delete-receipts'
 JOURNAL.mkdir(parents=True,exist_ok=True)
+
+def refresh_inventory():
+    global ALLOWED, ACTIVITY_MEDIA
+    with LOCK:
+        ALLOWED=allowed_asset_ids(read_json(OUT/'多标签清单.json', {'items':[]}).get('items',[]),
+                                  read_json(ACTIVITY_INVENTORY, {}).get('items',[]))
+        ACTIVITY_MEDIA=read_json(ROOT/'activity_media_paths.json', {})
+
+def runtime():
+    global RUNTIME
+    with RUNTIME_LOCK:
+        if RUNTIME is None:
+            from runtime_jobs import RuntimeJobs
+            RUNTIME=RuntimeJobs(on_scan=refresh_inventory)
+        return RUNTIME
+
+def close_runtime():
+    if RUNTIME is not None:
+        RUNTIME.close()
 
 def native(action, ids=None):
     if not HELPER.is_file():
@@ -134,11 +150,7 @@ class Handler(BaseHTTPRequestHandler):
         return self.headers.get('Host') in {f'{h}:{self.server.server_port}' for h in hosts}
     def authenticated(self):
         if self.client_address[0]=='127.0.0.1':return True
-        expected='Basic '+base64.b64encode(('photos:'+LAN_PASSWORD).encode()).decode()
-        if secrets.compare_digest(self.headers.get('Authorization',''),expected):return True
-        body='请输入照片访问用户名和密码。'.encode()
-        self.send_response(401);self.send_header('WWW-Authenticate','Basic realm="Photo Review", charset="UTF-8"')
-        self.send_header('Cache-Control','no-store');self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
+        self.reply({'ok':False,'error':'此服务只允许本机访问。'},403)
         return False
     def activity_media(self,uuid,compatible=False):
         item=ACTIVITY_MEDIA.get(uuid)
@@ -183,6 +195,8 @@ class Handler(BaseHTTPRequestHandler):
         path=unquote(urlsplit(self.path).path)
         if path=='/api/health':
             return self.reply({'ok':True,'application':'photo-review','mode':'library','instance':INSTANCE_ID})
+        if path=='/api/setup':
+            return self.reply(runtime().snapshot()|{'token':TOKEN})
         if path.startswith('/api/activity-preview/'):
             return self.activity_media(path.removeprefix('/api/activity-preview/'),compatible=True)
         if path.startswith('/api/activity-media/'):
@@ -223,6 +237,19 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(data,dict): raise ValueError('请求格式无效。')
             if self.path=='/api/authorize': result=native('authorize')
             elif self.path=='/api/trash': result=trash(data)
+            elif self.path=='/api/library/scan': runtime().start_scan();result={'ok':True}
+            elif self.path=='/api/tasks/stop': runtime().stop();result={'ok':True}
+            elif self.path=='/api/recognition/start': runtime().start_recognition(data.get('id'));result={'ok':True}
+            elif self.path=='/api/models/download':
+                if not runtime().platform_status()['model_supported']:
+                    raise ValueError('请使用 Apple Silicon Mac 的完整安装包下载增强模型。')
+                runtime().models.download(data.get('id'));result={'ok':True}
+            elif self.path=='/api/models/pause': runtime().models.pause(data.get('id'));result={'ok':True}
+            elif self.path=='/api/models/select': runtime().models.select(data.get('id'));result={'ok':True}
+            elif self.path=='/api/app/quit':
+                self.reply({'ok':True})
+                threading.Thread(target=self.server.shutdown,daemon=True).start()
+                return
             else: return self.reply({'ok':False,'error':'Not found'},404)
             self.reply(result)
         except ValueError as e: self.reply({'ok':False,'error':str(e)},400)

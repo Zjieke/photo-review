@@ -7,7 +7,8 @@
  <meta name="color-scheme" content="light">
  <title>照片整理 · 本地图库</title>
  <style>/*__REVIEW_STYLE__*/
-/*__ACTIVITY_STYLE__*/</style>
+/*__ACTIVITY_STYLE__*/
+/*__SETUP_STYLE__*/</style>
 </head>
 <body data-input="pointer">
 <a class="skip-link" href="#libraryView">跳到照片内容</a>
@@ -18,7 +19,7 @@
   <button id="activityTab" aria-pressed="false" aria-controls="activityView">活动分组</button>
   <button id="duplicateTab" aria-pressed="false" aria-controls="duplicateView">重复与相似</button>
  </nav>
- <span class="local-badge"><span aria-hidden="true">●</span> 本机处理</span>
+ <div class="header-utilities"><span class="local-badge"><span aria-hidden="true">●</span> 本机处理</span><button id="openSetup" aria-haspopup="dialog" aria-controls="setupDialog"><span class="setup-trigger-dot" aria-hidden="true"></span>图库与模型</button></div>
 </header>
 <div class="workspace">
  <section class="workspace-heading" aria-label="图库概览">
@@ -50,6 +51,7 @@
  /*__ACTIVITY_SECTION__*/
  /*__DUPLICATE_SECTION__*/
 </div>
+/*__SETUP_SECTION__*/
 <div id="selectionDock" class="selection-dock" data-active="false" role="region" aria-label="已勾选项目操作"><div class="selection-copy"><strong id="selectionCount" aria-live="polite">还没有勾选</strong><span id="selectionHint">勾选照片或视频后，可统一确认删除</span></div><div class="actions"><button id="export" hidden>导出勾选清单</button><button id="clearAllSelected" disabled>取消全部勾选</button><button id="deleteSelected" class="danger" disabled>删除已勾选</button></div></div>
 <dialog id="preview" aria-labelledby="previewTitle">
  <div class="dialog-head"><div><strong id="previewTitle"></strong><p id="previewPosition" class="muted" aria-live="polite"></p></div><button id="closePreview">关闭 · Esc</button></div>
@@ -61,5 +63,6 @@
 <dialog id="exportDialog" aria-label="待处理清单"><div class="dialog-head"><strong>待处理清单</strong><button onclick="document.getElementById('exportDialog').close()">关闭</button></div><textarea id="exportText" aria-label="导出清单内容" readonly></textarea><div class="actions"><button id="selectExport">全选清单文本</button><button id="downloadExport" class="primary">下载 JSON 文件</button></div></dialog>
 <dialog id="deleteDialog" aria-labelledby="deleteTitle"><p class="eyebrow">删除确认</p><h2 id="deleteTitle">将勾选项目移到最近删除？</h2><p id="deleteSummary"></p><div class="delete-notice">会同步影响 iCloud 照片与已同步的设备。移入“最近删除”后通常可在 30 天内恢复。</div><details class="delete-list"><summary>查看待删除项目</summary><ul id="deleteItems"></ul></details><label class="confirm-label"><input type="checkbox" id="confirmDeletion"> 确认将这些项目移到“最近删除”</label><p id="deleteError" role="alert"></p><div class="actions"><button id="cancelDelete">取消</button><button id="confirmDelete" class="danger" disabled>确认删除</button></div></dialog>
 <script>/*__REVIEW_APP__*/</script>
+<script>/*__SETUP_UI__*/</script>
 </body>
 </html>

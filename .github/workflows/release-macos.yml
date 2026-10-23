@@ -1,0 +1,39 @@
+name: Build macOS browser launcher
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version, for example 0.2.0'
+        required: true
+        default: '0.2.0'
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    # Standard Apple Silicon runner. The builder refuses non-arm64 hosts.
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Build self-contained testing application
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: python scripts/build_release.py --version "$RELEASE_VERSION"
+      - name: Verify isolated first launch
+        run: python scripts/smoke_release.py 'dist/Photo Review.app'
+      - name: Upload ad-hoc testing archive
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: photo-review-macOS-arm64-adhoc
+          path: |
+            dist/*.zip
+            dist/*.sha256
+            dist/*.manifest.json
+          if-no-files-found: error
+          retention-days: 30

@@ -1,9 +1,10 @@
 # 第三方依赖与模型
 
-本仓库只分发自有源码、文档和程序生成的测试样例，不包含第三方安装环境、模型权重或图库内容。项目的 MIT 许可证不替代以下组件的许可证。
+Git 仓库包含项目源码、文档和程序生成的测试样例，不包含模型权重或图库内容。Release 启动包另附 CPython 和运行依赖，其许可证文件随运行环境保留，完整版本列表见制品的 manifest。项目的 MIT 许可证不替代这些组件的许可证。
 
 | 组件 | 用途 | 上游许可证及来源 |
 | --- | --- | --- |
+| CPython / python-build-standalone | 发布包内置、可重定位的 Python 运行环境 | [Python PSF License](https://docs.python.org/3/license.html)、[构建项目](https://github.com/astral-sh/python-build-standalone) |
 | osxphotos | 读取 macOS Photos 索引 | [MIT](https://github.com/RhetTbull/osxphotos) |
 | PyObjC | Python 调用 Apple Vision／Quartz | [MIT](https://github.com/ronaldoussoren/pyobjc) |
 | Pillow | 图片缩略图与感知哈希 | [MIT-CMU](https://github.com/python-pillow/Pillow/blob/main/LICENSE) |

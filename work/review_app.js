@@ -242,12 +242,12 @@ async function pollLocalModel(){
  try{
   const status=await (await fetch('/api/local-model-progress',{cache:'no-store'})).json();
   const n=status.processed||0,total=status.total||0;
-  const text={not_started:'尚未启动增强本地模型。',downloading:`正在下载本地 Qwen3.5-4B 模型 · ${status.percent||0}%（照片未上传）`,installing:'正在准备本地模型运行环境（照片未上传）。',loading:'正在加载本地看图模型……',benchmark:`正在验证本地模型 · ${status.benchmark_done||0}/${status.benchmark_total||20} 张样本`,running:`本地 Qwen 看图识别中 · 已处理 ${n}/${total} 张 · 图片推理在本机进行`,completed:`本地 Qwen 本批处理结束 · 成功 ${n}/${total} 张 · 失败 ${status.failed||0} 张 · 模型仍不确定 ${status.uncertain||0} 张`,validation_failed:'本地模型样本验证未通过，尚未批量处理。',failed:'本地模型任务未完成：'+(status.error||'请检查运行日志。')};
+  const text={not_started:'尚未启动增强本地模型。',downloading:`正在下载本地 Qwen3.5-4B 模型 · ${status.percent||0}%（照片未上传）`,installing:'正在准备本地模型运行环境（照片未上传）。',loading:'正在加载本地看图模型……',benchmark:`正在验证本地模型 · ${status.benchmark_done||0}/${status.benchmark_total||20} 张样本`,running:`本地 Qwen 看图识别中 · 已处理 ${n}/${total} 张 · 图片推理在本机进行`,paused:`本地增强已暂停 · 已保存 ${n}/${total} 张，可在“图库与模型”中继续`,completed:`本地 Qwen 本批处理结束 · 成功 ${n}/${total} 张 · 失败 ${status.failed||0} 张 · 模型仍不确定 ${status.uncertain||0} 张`,validation_failed:'本地模型样本验证未通过，尚未批量处理。',failed:'增强任务未完成，可在“图库与模型”中检查状态后重试。'};
   el('localModelStatus').textContent=text[status.phase]||'正在准备本地模型……';
   const percent=total?Math.min(100,Math.round(n/total*100)):0;
   el('modelProgress').hidden=!total;el('modelProgress').setAttribute('aria-valuenow',String(percent));
   el('modelProgressFill').style.transform=`scaleX(${percent/100})`;
-  el('modelPhase').textContent=({running:'增强识别',completed:'增强已完成',not_started:'增强未启动',downloading:'模型下载中',installing:'模型准备中',loading:'模型加载中',benchmark:'模型验证中',validation_failed:'模型验证未通过',failed:'增强未完成'})[status.phase]||'增强识别';
+  el('modelPhase').textContent=({running:'增强识别',paused:'增强已暂停',completed:'增强已完成',not_started:'增强未启动',downloading:'模型下载中',installing:'模型准备中',loading:'模型加载中',benchmark:'模型验证中',validation_failed:'模型验证未通过',failed:'增强未完成'})[status.phase]||'增强识别';
   el('modelCompactProgress').textContent=total?`${n.toLocaleString()} / ${total.toLocaleString()}`:status.phase==='downloading'?`${status.percent||0}%`:'';
   const update=await (await fetch('/api/local-model-updates?after='+localModelUpdateAt,{cache:'no-store'})).json();
   if(update.items?.length){
