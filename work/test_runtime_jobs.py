@@ -140,7 +140,7 @@ class RuntimeJobsTests(unittest.TestCase):
             signal.signal(signal.SIGTERM, stop)
             (root / 'child-pid').write_text(str(child.pid))
             while True:
-                if (root / 'work' / 'task-stop').exists(): stop(None, None)
+                if os.name == 'nt' and (root / 'work' / 'task-stop').exists(): stop(None, None)
                 time.sleep(.02)
         ''')
         self.jobs.start_scan()
@@ -184,7 +184,7 @@ class RuntimeJobsTests(unittest.TestCase):
             (root / 'model-path').write_text(os.environ['PHOTO_REVIEW_MODEL_PATH'])
             (root / 'recognition-ready').write_text('yes')
             while True:
-                if (root / 'work' / 'task-stop').exists(): stop(None, None)
+                if os.name == 'nt' and (root / 'work' / 'task-stop').exists(): stop(None, None)
                 time.sleep(.02)
         ''')
         self.jobs.start_recognition('synthetic')
