@@ -69,16 +69,23 @@ def main():
     server = next(engine.rglob('llama-server.exe'))
     if server.parent != engine:
         for file in server.parent.iterdir(): shutil.move(str(file), str(engine / file.name))
-    # These redistributable DLLs already ship with standalone Python / PyWinRT.
-    # An engine subprocess cannot use a DLL merely loaded in its Python parent.
-    msvc = [runtime/'vcruntime140.dll', runtime/'vcruntime140_1.dll',
-            runtime/'Lib/site-packages/winrt/msvcp140.dll']
+    # Use one matched Microsoft CRT set from the builder's official VS redist.
+    # Mixing Python's older runtime with PyWinRT's C++ DLL is not sufficient.
+    vswhere = Path(os.environ['ProgramFiles(x86)']) / 'Microsoft Visual Studio/Installer/vswhere.exe'
+    visual_studio = Path(subprocess.check_output([str(vswhere), '-latest', '-products', '*',
+                            '-property', 'installationPath'], text=True).strip())
+    sets = list((visual_studio / 'VC/Redist/MSVC').glob('*/x64/Microsoft.VC*.CRT'))
+    if not sets: raise RuntimeError('Official MSVC app-local redistributables not found')
+    crt = max(sets, key=lambda path:tuple(int(x) for x in path.parent.parent.name.split('.')))
+    msvc = list(crt.glob('*.dll'))
     for source in msvc:
         if not source.is_file(): raise RuntimeError('Missing bundled Microsoft runtime: '+source.name)
         for directory in (engine, runtime):
             target = directory/source.name
             if target.resolve() != source.resolve(): shutil.copy2(source,target)
     verify_msvc(app)
+    subprocess.run([str(engine/'llama-server.exe'), '--version'],
+                   env={**environment,'PATH':str(cache/'no-system-tools')},check=True)
     # Keep all DLLs and upstream license files. The model weights are separate downloads.
     csc = Path(os.environ['WINDIR']) / 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
     subprocess.run([str(csc), '/nologo', '/target:winexe', '/platform:x64', '/utf8output',
@@ -98,6 +105,7 @@ def main():
         python_sha256=PYTHON_SHA, engine='llama.cpp b11829 CPU', engine_sha256=ENGINE_SHA,
         ffmpeg_sha256=sha256(Path(ffmpeg)),
         app_local_msvc={source.name:sha256(source) for source in msvc},
+        app_local_msvc_version=crt.parent.parent.name,
         model_weights_included=False, authenticode_signed=False,
         dependencies=[{'name':item['metadata']['name'], 'version':item['metadata']['version'],
                        'sha256':item['download_info']['archive_info'].get('hashes',{}).get('sha256')}

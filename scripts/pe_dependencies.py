@@ -42,12 +42,12 @@ def verify_msvc(app):
     app = Path(app)
     for folder in (app / 'engine', app / 'runtime'):
         dlls = {file.name.lower(): exports(file.read_bytes()) for file in folder.glob('*.dll')
-                if re.fullmatch(r'(?:msvcp|vcruntime|concrt)[0-9_]+\.dll', file.name.lower())}
+                if re.fullmatch(r'(?:msvcp|vcruntime|concrt)[a-z0-9_]+\.dll', file.name.lower())}
         for file in folder.rglob('*'):
             if not file.is_file() or file.suffix.lower() not in ('.exe', '.dll', '.pyd'):
                 continue
             for name, symbols in imports(file.read_bytes()).items():
-                if not re.fullmatch(r'(?:msvcp|vcruntime|concrt)[0-9_]+\.dll', name):
+                if not re.fullmatch(r'(?:msvcp|vcruntime|concrt)[a-z0-9_]+\.dll', name):
                     continue
                 if name not in dlls or not set(symbols) <= dlls[name]:
                     raise RuntimeError('Missing app-local MSVC DLL or symbol: ' + file.name + ' -> ' + name)

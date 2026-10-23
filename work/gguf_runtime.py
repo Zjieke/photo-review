@@ -40,7 +40,7 @@ class GGUFModel:
             deadline = time.monotonic() + 180
             while time.monotonic() < deadline:
                 if self.process.poll() is not None:
-                    raise RuntimeError('本地模型引擎启动失败，请检查内存和系统兼容性。')
+                    raise RuntimeError('本地模型引擎启动失败（代码 '+str(self.process.returncode)+'），请检查内存和系统兼容性。')
                 try:
                     request = urllib.request.Request(self.url + '/health', headers={'Authorization': 'Bearer ' + self.key})
                     with self.opener.open(request, timeout=2) as response:

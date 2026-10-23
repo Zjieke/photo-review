@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import sys
 import subprocess
 import tempfile
 import time
@@ -131,6 +132,10 @@ save_folder(folder,state)
         print('PASS: native Windows launch, isolated Python, OCR, folder scan, activities, duplicates, '
               'optional model download/inference/cache, synthetic Recycle Bin deletion, reuse and exit', flush=True)
     finally:
+        if sys.exc_info()[0] is not None:
+            for name in ('logs/launcher.log','work/background-job.log','work/model-engine.log'):
+                log = temporary / '用户 数据' / name
+                if log.exists(): print('Synthetic diagnostics: '+name+'\n'+log.read_text(encoding='utf-8',errors='replace')[-6000:],flush=True)
         if process and process.poll() is None:
             subprocess.run(['taskkill','/PID',str(process.pid),'/T','/F'],capture_output=True)
             process.wait(timeout=30)
