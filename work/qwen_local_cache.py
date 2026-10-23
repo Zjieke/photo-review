@@ -1,12 +1,12 @@
 """Checkpoint helpers for a single local image-recognition process."""
-import fcntl
+from file_lock import lock
 import json
 
 
 def acquire_job_lock(path):
-    handle = path.open('a')
+    handle = path.open('a+b')
     try:
-        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        lock(handle)
     except BlockingIOError:
         handle.close()
         raise RuntimeError('本地识别任务已在运行') from None

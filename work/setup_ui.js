@@ -113,11 +113,18 @@
    const resultsReady = changed && !(job.kind === 'scan' && running);
    welcome.hidden = !initialEmpty;
    for (const id of ['grid', 'loadSentinel']) if (get(id)) get(id).hidden = initialEmpty;
-   text('setupWelcomeTitle', resultsReady ? '图库已整理好' : running ? '正在整理你的图库' : '从这台 Mac 的照片开始');
+   text('setupWelcomeTitle', resultsReady ? '图库已整理好' : running ? '正在整理你的图库' : platform.folder_mode ? '从照片文件夹开始' : '从这台 Mac 的照片开始');
    text('setupWelcomeOpen', resultsReady ? '查看整理结果' : running ? '查看整理进度' : '开始整理图库');
    text('setupLibrarySummary', hasLibrary ? `${count(library.photos)} 张照片 · ${count(library.videos)} 个视频` : '首次使用，从读取图库开始');
    text('setupScan', hasLibrary ? '重新扫描图库' : '开始整理图库');
-   enable('setupScan', !!platform.supported && available && !running);
+   enable('setupScan', !!platform.supported && available && !running && (!platform.folder_mode || !!library.folder));
+   if (get('setupFolderControls')) {
+    hide('setupFolderControls', !platform.folder_mode);
+    enable('setupFolder', available && !running);
+    text('setupFolderPath', library.folder || '尚未选择文件夹');
+    text('setupLibraryHelp', platform.folder_mode ? '选择本机照片目录或已下载的 iCloud 照片文件夹。基础 OCR 使用系统已有语言包；仅在云端的文件会跳过。' : '首次使用时，请按系统提示允许照片访问。基础识别不需要下载模型。');
+    if (platform.folder_mode && library.skipped) text('setupLibrarySummary', `${count(library.photos)} 张照片 · ${count(library.videos)} 个视频 · ${count(library.skipped)} 项未下载或不可访问`);
+   }
    hide('setupPlatform', !platform.message);
    text('setupPlatform', message(platform.message, '当前设备暂不支持此功能。'));
    hide('setupJob', !job.kind || job.state === 'idle');
@@ -219,6 +226,7 @@
    } else action('/api/library/scan');
   });
   get('setupViewResults').addEventListener('click', () => environment.location.reload());
+  get('setupFolder')?.addEventListener('click', () => action('/api/library/folder'));
   get('setupQuit').addEventListener('click', () => { hide('setupQuitConfirm', false); get('setupQuitCancel').focus(); });
   get('setupQuitCancel').addEventListener('click', () => { hide('setupQuitConfirm', true); get('setupQuit').focus(); });
   get('setupQuitAccept').addEventListener('click', () => action('/api/app/quit'));

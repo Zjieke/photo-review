@@ -1,9 +1,10 @@
 let apiToken='', photoAuthorization='unknown', deletionBusy=false, pendingDeletion=[];
+let trashLabel='最近删除', restoreLocation='照片应用';
 const removed=new Set();
 function deletionStatus(message){el('deletionStatus').textContent=message}
 function updateDeleteButton(){el('clearAllSelected').disabled=!selected.size||deletionBusy;el('deleteSelected').disabled=!apiToken||deletionBusy||!selected.size;el('authorizePhotos').hidden=photoAuthorization==='authorized';el('authorizePhotos').disabled=!apiToken||deletionBusy;if(typeof refreshActivitySelection==='function')refreshActivitySelection()}
 async function loadDeletionStatus(){
- try{const res=await fetch('/api/status',{cache:'no-store'});const data=await res.json();if(!data.ok)throw Error(data.error||'删除服务不可用');apiToken=data.token;photoAuthorization=data.authorization;for(const id of data.deleted||[]){removed.add(id);selected.delete(id)}save();if(typeof invalidateLibrary==='function')invalidateLibrary();render();deletionStatus(photoAuthorization==='authorized'?'图库已连接':'首次使用：请点击“授权照片访问”，在系统提示中允许完整访问。')}
+ try{const res=await fetch('/api/status',{cache:'no-store'});const data=await res.json();if(!data.ok)throw Error(data.error||'删除服务不可用');apiToken=data.token;photoAuthorization=data.authorization;if(data.source==='folder'){trashLabel='回收站';restoreLocation='Windows 回收站';el('deleteTitle').textContent='将勾选文件移到回收站？';if(el('confirmDeletionLabel'))el('confirmDeletionLabel').textContent=' 确认将这些文件移到 Windows 回收站';if(el('deleteDestination'))el('deleteDestination').textContent='确认后将原文件移到 Windows 回收站。iCloud、OneDrive 等同步目录中的删除也可能同步到云端及其他设备。'}for(const id of data.deleted||[]){removed.add(id);selected.delete(id)}save();if(typeof invalidateLibrary==='function')invalidateLibrary();render();deletionStatus(photoAuthorization==='authorized'?'图库已连接':'首次使用：请点击“授权照片访问”，在系统提示中允许完整访问。')}
  catch(e){deletionStatus('删除服务未连接：'+e.message+'。请通过本地服务地址打开页面。')}
  updateDeleteButton();
 }
@@ -18,7 +19,7 @@ function showDeletePreview(){
  const hiddenCount=pendingDeletion.filter(id=>!visibleIds.has(id)).length;
  const videos=targets.filter(r=>r.kind==='video').length,photos=selectedTotal-videos;
  const counts=[photos?`${photos} 张照片`:'',videos?`${videos} 个视频`:''].filter(Boolean).join('、');
- el('deleteSummary').textContent=`本次将把全部 ${selectedTotal} 项（${counts}）移到“最近删除”。若中途失败，未完成项目会保留勾选。`+(hiddenCount?`其中 ${hiddenCount} 项不在当前筛选结果中。`:'');
+ el('deleteSummary').textContent=`本次将把全部 ${selectedTotal} 项（${counts}）移到“${trashLabel}”。若中途失败，未完成项目会保留勾选。`+(hiddenCount?`其中 ${hiddenCount} 项不在当前筛选结果中。`:'');
  el('deleteItems').replaceChildren();
  for(const r of targets.slice(0,100)){const li=document.createElement('li');li.textContent=`${r.kind==='video'?'视频':'照片'} · ${r.filename||'#'+r.number} · ${r.date.slice(0,10)}`;el('deleteItems').append(li)}
  if(targets.length>100){const li=document.createElement('li');li.textContent=`另有 ${targets.length-100} 项已勾选，将一并处理。`;el('deleteItems').append(li)}
@@ -43,7 +44,7 @@ el('confirmDelete').onclick=async()=>{
    completed+=result.deleted.length;save();if(typeof invalidateLibrary==='function')invalidateLibrary();render();
    if(new Set(result.deleted).size!==batch.length)throw Error('本批未全部完成，已停止后续批次。');
   }
-  el('deleteDialog').close();deletionStatus(`已将全部 ${completed} 项移到“最近删除”。如需恢复，请打开照片应用。`);
+  el('deleteDialog').close();deletionStatus(`已将全部 ${completed} 项移到“${trashLabel}”。如需恢复，请打开${restoreLocation}。`);
  }
  catch(e){el('deleteError').textContent=`已完成 ${completed}/${targets.length} 项，已停止。${e.message} 未完成的项目保留勾选，请检查后再试。`;el('confirmDeletion').checked=false;pendingDeletion=targets.filter(id=>!removed.has(id))}
 

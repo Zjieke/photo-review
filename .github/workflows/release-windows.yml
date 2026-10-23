@@ -1,0 +1,50 @@
+name: Build Windows browser launcher
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version
+        required: true
+        default: '0.3.0-preview.1'
+permissions:
+  contents: read
+jobs:
+  bundle:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    env:
+      PYTHONUTF8: '1'
+      PHOTO_REVIEW_KEEP_SMOKE: '1'
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22'
+      - run: python -m pip install 'Pillow>=12.3.0,<14'
+      - run: python scripts/check_public_tree.py
+      - name: Synthetic regression tests
+        run: python -u -m unittest discover -s work -p 'test_*.py' -v
+      - name: Frontend tests
+        shell: bash
+        run: for test in work/test_*.cjs; do node "$test" || exit 1; done
+      - name: Build private Python and CPU engine
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: python -u scripts/build_windows.py --version "$env:RELEASE_VERSION"
+      - name: Actual Windows OCR and image model acceptance
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: python -u scripts/smoke_windows.py "dist/Photo-Review-$env:RELEASE_VERSION-Windows-x64.zip" --inference
+      - name: Upload Windows testing archive
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: photo-review-Windows-x64
+          path: |
+            dist/*.zip
+            dist/*.sha256
+            dist/*.manifest.json
+          if-no-files-found: error
+          retention-days: 30

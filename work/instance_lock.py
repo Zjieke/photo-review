@@ -1,5 +1,5 @@
 """One packaged backend per data directory, with identity-checked browser reuse."""
-import fcntl
+from file_lock import lock, unlock
 import json
 import os
 import time
@@ -14,10 +14,10 @@ class InstanceLock:
         self.directory.mkdir(parents=True, exist_ok=True)
         self.record = self.directory / 'browser-service.json'
         descriptor = os.open(self.directory / 'browser-service.lock', os.O_CREAT | os.O_RDWR, 0o600)
-        self.file = os.fdopen(descriptor, 'a+')
+        self.file = os.fdopen(descriptor, 'a+b')
         self.owned = False
         try:
-            fcntl.flock(self.file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            lock(self.file)
             self.owned = True
         except BlockingIOError:
             pass
@@ -51,5 +51,5 @@ class InstanceLock:
     def close(self):
         if self.owned:
             self.record.unlink(missing_ok=True)
-            fcntl.flock(self.file, fcntl.LOCK_UN)
+            unlock(self.file)
         self.file.close()

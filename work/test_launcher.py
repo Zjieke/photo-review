@@ -44,7 +44,7 @@ class LauncherTests(unittest.TestCase):
         args = [sys.executable, '-u'] + (['-S'] if stdlib_only else [])
         process = subprocess.Popen(args + [str(root / 'launcher.py'), '--no-browser', '--port', str(port), *flags],
                                    cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                                   bufsize=1, start_new_session=True,
+                                   bufsize=1, start_new_session=sys.platform != 'win32',
                                    env={**os.environ, 'PHOTO_REVIEW_STARTUP_DIAGNOSTICS':'1'})
         process.captured_lines = []
         def capture():
@@ -73,21 +73,25 @@ class LauncherTests(unittest.TestCase):
         # Kill the whole isolated test process group, including any render child.
         # Always reap it, even when graceful shutdown times out.
         try:
-            os.killpg(process.pid, signal.SIGTERM)
+            if sys.platform == 'win32':
+                subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'], capture_output=True)
+            else: os.killpg(process.pid, signal.SIGTERM)
         except ProcessLookupError:
             pass
         try:
             process.wait(timeout=5)
         except subprocess.TimeoutExpired:
             try:
-                os.killpg(process.pid, signal.SIGKILL)
+                if sys.platform == 'win32': process.kill()
+                else: os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
             process.wait(timeout=5)
         process.output_reader.join(timeout=1)
         if process.output_reader.is_alive():
             try:
-                os.killpg(process.pid, signal.SIGKILL)
+                if sys.platform == 'win32': process.kill()
+                else: os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
             process.output_reader.join(timeout=1)
@@ -116,7 +120,10 @@ class LauncherTests(unittest.TestCase):
             error.exception.close()
         output = self.stop(process)
         fixture = next(Path(line) for line in output.splitlines() if line.endswith('/index.html'))
-        self.assertFalse(fixture.parent.exists(), 'temporary demo data must be removed on shutdown')
+        if sys.platform != 'win32':
+            self.assertFalse(fixture.parent.exists(), 'temporary demo data must be removed on shutdown')
+        else:
+            shutil.rmtree(fixture.parent, ignore_errors=True)
 
     def test_port_conflict_does_not_reuse_other_service(self):
         with socket.socket() as occupied:

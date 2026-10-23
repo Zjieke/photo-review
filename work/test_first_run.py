@@ -20,7 +20,7 @@ from qwen_local_cache import initialize_cache, save_result
 
 SOURCE = Path(__file__).resolve().parent
 BUILD_SOURCES = (
-    'app_paths.py', 'build_multidim.py', 'multidim.py', 'review_template.html', 'review_app.js',
+    'app_paths.py', 'file_lock.py', 'build_multidim.py', 'multidim.py', 'review_template.html', 'review_app.js',
     'review_style.css', 'review_motion.js', 'deletion_ui.js', 'activity_section.html',
     'activity_style.css', 'activity_ui.js', 'duplicate_section.html', 'duplicate_ui.js',
     'setup_section.html', 'setup_style.css', 'setup_ui.js',

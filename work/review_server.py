@@ -5,6 +5,7 @@ import os
 import json
 import secrets
 import subprocess
+import sys
 import threading
 import tempfile
 from http.server import BaseHTTPRequestHandler
@@ -69,6 +70,9 @@ def close_runtime():
         RUNTIME.close()
 
 def native(action, ids=None):
+    if sys.platform == 'win32':
+        from folder_library import native as folder_native
+        return folder_native(action, ids)
     if not HELPER.is_file():
         if action=='status':
             return {'ok':True,'authorization':'helper_missing','error':'尚未构建照片助手。请运行 python3 launcher.py --build-helper。'}
@@ -165,7 +169,15 @@ class Handler(BaseHTTPRequestHandler):
                 if not cached.exists() or cached.stat().st_mtime<target.stat().st_mtime:
                     tmp=directory/(uuid+'.pending.mp4')
                     try:
-                        result=subprocess.run(['/usr/bin/avconvert','--source',str(target),'--preset','Preset1280x720','--output',str(tmp),'--replace'],capture_output=True,timeout=180)
+                        if sys.platform == 'win32':
+                            import imageio_ffmpeg
+                            command=[imageio_ffmpeg.get_ffmpeg_exe(),'-v','error','-nostdin','-i',str(target),
+                                     '-vf','scale=1280:720:force_original_aspect_ratio=decrease',
+                                     '-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart','-y',str(tmp)]
+                        else:
+                            command=['/usr/bin/avconvert','--source',str(target),'--preset','Preset1280x720','--output',str(tmp),'--replace']
+                        result=subprocess.run(command,capture_output=True,timeout=180,
+                            creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0) if sys.platform=='win32' else 0)
                         if result.returncode or not tmp.exists():raise RuntimeError('conversion failed')
                         tmp.replace(cached)
                     except Exception:
@@ -238,11 +250,16 @@ class Handler(BaseHTTPRequestHandler):
             if self.path=='/api/authorize': result=native('authorize')
             elif self.path=='/api/trash': result=trash(data)
             elif self.path=='/api/library/scan': runtime().start_scan();result={'ok':True}
+            elif self.path=='/api/library/folder':
+                if runtime().snapshot()['job'].get('state') in ('running','stopping'):
+                    raise ValueError('请先暂停当前任务，再选择文件夹。')
+                from folder_library import pick_folder
+                pick_folder();result={'ok':True}
             elif self.path=='/api/tasks/stop': runtime().stop();result={'ok':True}
             elif self.path=='/api/recognition/start': runtime().start_recognition(data.get('id'));result={'ok':True}
             elif self.path=='/api/models/download':
                 if not runtime().platform_status()['model_supported']:
-                    raise ValueError('请使用 Apple Silicon Mac 的完整安装包下载增强模型。')
+                    raise ValueError('请使用包含本地模型引擎的完整安装包。')
                 runtime().models.download(data.get('id'));result={'ok':True}
             elif self.path=='/api/models/pause': runtime().models.pause(data.get('id'));result={'ok':True}
             elif self.path=='/api/models/select': runtime().models.select(data.get('id'));result={'ok':True}

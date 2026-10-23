@@ -1,4 +1,5 @@
-import collections,json,fcntl
+import collections,json
+from file_lock import lock
 from pathlib import Path
 from multidim import DIMENSIONS,infer
 from app_paths import CODE_DIR, DATA_ROOT as ROOT, OUT, STATE_DIR as WORK, ensure_data_dirs
@@ -7,7 +8,7 @@ def read_json(path,default):
  return json.loads(path.read_text()) if path.exists() else default
 def atomic(path,text):
  tmp=path.with_suffix('.tmp');tmp.write_text(text);tmp.replace(path)
-_build_lock=(WORK/'multidim-build.lock').open('a');fcntl.flock(_build_lock,fcntl.LOCK_EX)
+_build_lock=(WORK/'multidim-build.lock').open('a+b');lock(_build_lock,blocking=True)
 source=read_json(OUT/'full_results.json',[])
 manual=json.loads((WORK/'vlm_results.json').read_text()) if (WORK/'vlm_results.json').exists() else {}
 auto=json.loads((WORK/'local_visual_results.json').read_text()) if (WORK/'local_visual_results.json').exists() else {}

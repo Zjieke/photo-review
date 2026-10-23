@@ -13,6 +13,9 @@ from model_manager import ModelManager, atomic_json, read_json
 
 
 def model_runtime_available():
+    if sys.platform == 'win32':
+        from gguf_runtime import runtime_path
+        return runtime_path().is_file()
     try:
         return importlib.util.find_spec('mlx_vlm') is not None and importlib.util.find_spec('mlx') is not None
     except (ImportError, ValueError):
@@ -38,28 +41,34 @@ class RuntimeJobs:
             self.state.update(state='paused', message='上次任务已停止，可以继续；已保存的结果会保留。')
 
     def platform_status(self):
-        supported = sys.platform == 'darwin'
-        model_supported = supported and platform.machine() == 'arm64' and model_runtime_available()
+        supported = sys.platform in ('darwin', 'win32')
+        model_supported = supported and (sys.platform == 'win32' or platform.machine() == 'arm64') and model_runtime_available()
         message = '' if model_supported else ('增强识别需要 Apple Silicon Mac 的完整安装包。' if supported
                                              else '当前图库功能需要 macOS；其他系统可查看合成演示。')
-        return {'supported': supported, 'model_supported': model_supported, 'message': message}
+        if sys.platform == 'win32':
+            message = '' if model_supported else '请使用包含本地识别引擎的 Windows 完整包。'
+        return {'supported': supported, 'model_supported': model_supported, 'message': message,
+                'id': sys.platform, 'folder_mode': sys.platform == 'win32'}
 
     def snapshot(self):
         analysis = read_json(self.out / 'analysis_progress.json', {})
         inventory = self.out / 'full_results.json'
         with self.lock:
             job = dict(self.state)
-        if job.get('kind') == 'scan' and job.get('stage') == 'full_analysis.py':
-            job['progress'] = {'processed': analysis.get('processed', 0), 'total': analysis.get('photos', 0)}
+        if job.get('kind') == 'scan' and job.get('stage') in ('full_analysis.py', 'folder_analysis.py'):
+            job['progress'] = {'processed': analysis.get('processed', 0), 'total': analysis.get('total', analysis.get('photos', 0))}
         elif job.get('kind') == 'recognize':
             progress = read_json(self.out / 'local_model_progress.json', {})
             job['progress'] = {'processed': progress.get('processed', 0), 'total': progress.get('total', 0)}
         else:
             job.setdefault('progress', {})
+        from folder_library import selected_folder
+        folder = selected_folder(self.state_dir) if sys.platform == 'win32' else None
         return {'ok': True, 'packaged': os.environ.get('PHOTO_REVIEW_PACKAGED') == '1',
                 'platform': self.platform_status(),
                 'library': {'has_scan': inventory.exists(), 'photos': analysis.get('photos', 0),
-                            'videos': analysis.get('videos', 0)},
+                            'videos': analysis.get('videos', 0), 'folder': str(folder) if folder else '',
+                            'skipped': analysis.get('skipped', 0), 'ocr_completed': analysis.get('ocr_completed', 0)},
                 'job': job, 'models': self.models.snapshot(),
                 'library_revision': inventory.stat().st_mtime_ns if inventory.exists() else 0}
 
@@ -73,6 +82,7 @@ class RuntimeJobs:
             if self.thread and self.thread.is_alive():
                 raise ValueError('已有任务正在进行，请先暂停。')
             self.cancel.clear()
+            (self.state_dir / 'task-stop').unlink(missing_ok=True)
             self.state = {'kind': kind, 'state': 'running', 'message': '正在准备…', 'progress': {}}
             self._state(model_id=model_id, stage='')
             self.thread = threading.Thread(target=self._run, args=(kind, model_id), daemon=True)
@@ -80,12 +90,16 @@ class RuntimeJobs:
 
     def start_scan(self):
         if not self.platform_status()['supported']:
-            raise ValueError('图库扫描目前只支持 macOS。')
+            raise ValueError('图库扫描支持 macOS 和 Windows。')
+        if sys.platform == 'win32':
+            from folder_library import selected_folder
+            if not selected_folder(self.state_dir):
+                raise ValueError('请先选择照片文件夹。')
         self._start('scan')
 
     def start_recognition(self, identifier):
         if not self.platform_status()['model_supported']:
-            raise ValueError('请使用 Apple Silicon Mac 的完整安装包进行增强识别。')
+            raise ValueError('请使用包含本地模型引擎的完整安装包。')
         if not (self.out / 'full_results.json').exists():
             raise ValueError('请先扫描图库。')
         if not self.models.ready(identifier):
@@ -98,11 +112,15 @@ class RuntimeJobs:
             if not self.thread or not self.thread.is_alive():
                 return
             self.cancel.set()
+            (self.state_dir / 'task-stop').touch()
             self._state(state='stopping', message='正在保存进度，当前图片处理完后暂停…')
             process = self.process
             if process and process.poll() is None:
                 try:
-                    if self.state['kind'] == 'recognize':
+                    if sys.platform == 'win32':
+                        if self.state['kind'] != 'recognize':
+                            process.terminate()
+                    elif self.state['kind'] == 'recognize':
                         process.terminate()
                     else:
                         os.killpg(process.pid, signal.SIGTERM)
@@ -117,7 +135,7 @@ class RuntimeJobs:
         with self.lock:
             process = self.process
             if process and process.poll() is None:
-                os.killpg(process.pid, signal.SIGKILL)
+                self._kill(process)
                 process.wait(timeout=5)
 
     def _run(self, kind, identifier):
@@ -126,8 +144,10 @@ class RuntimeJobs:
                   ('find_photo_duplicates.py', '正在查找重复与相似图片…'),
                   ('build_multidim.py', '正在生成整理结果…')] if kind == 'scan' else [
                       ('qwen_local_labeler.py', '正在本机增强识别…')]
+        if kind == 'scan' and sys.platform == 'win32':
+            stages = [('folder_analysis.py', '正在扫描文件夹并进行本机基础识别…'), *stages[2:]]
         environment = {**os.environ, 'PHOTO_REVIEW_DATA_DIR': str(self.root),
-                       'PYTHONUNBUFFERED': '1', 'PYTHONDONTWRITEBYTECODE': '1'}
+                       'PYTHONUNBUFFERED': '1', 'PYTHONUTF8': '1', 'PYTHONDONTWRITEBYTECODE': '1'}
         if identifier:
             environment['PHOTO_REVIEW_MODEL_PATH'] = str(self.models.path(identifier))
         try:
@@ -139,14 +159,15 @@ class RuntimeJobs:
                         self._state(stage=script, message=message)
                         self.process = subprocess.Popen([sys.executable, str(self.code / script)],
                             cwd=self.root, env=environment, stdout=log, stderr=subprocess.STDOUT,
-                            start_new_session=True)
+                            start_new_session=sys.platform != 'win32',
+                            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0) if sys.platform == 'win32' else 0)
                         process = self.process
                     while process.poll() is None:
                         if self.cancel.wait(.2) and kind == 'scan':
                             try:
                                 process.wait(timeout=5)
                             except subprocess.TimeoutExpired:
-                                os.killpg(process.pid, signal.SIGKILL)
+                                self._kill(process)
                                 process.wait(timeout=5)
                         elif self.cancel.is_set():
                             time.sleep(.2)
@@ -163,7 +184,17 @@ class RuntimeJobs:
         except Exception:
             message = ('扫描未完成。请检查“系统设置 → 隐私与安全性”中的照片及文件访问权限后重试。'
                        if kind == 'scan' else '增强识别未完成。请确认内存充足、模型已下载完整后重试；已有标签会保留。')
+            if kind == 'scan' and sys.platform == 'win32':
+                message = '扫描未完成，请检查所选文件夹是否仍存在、文件是否已下载到本机及访问权限后重试。'
             self._state(state='failed', message=message)
         finally:
             with self.lock:
                 self.process = None
+
+    @staticmethod
+    def _kill(process):
+        if sys.platform == 'win32':
+            subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'], capture_output=True,
+                           creationflags=subprocess.CREATE_NO_WINDOW, timeout=15)
+        else:
+            os.killpg(process.pid, signal.SIGKILL)

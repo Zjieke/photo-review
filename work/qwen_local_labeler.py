@@ -52,9 +52,17 @@ def available_queue(rows,output):
  return queue
 
 def load_local_model(path):
+ if sys.platform=='win32':
+  from gguf_runtime import GGUFModel
+  from types import SimpleNamespace
+  global generate,apply_chat_template,mx
+  model=GGUFModel(path)
+  generate=lambda model,processor,prompt,image,max_tokens,**kwargs:model.generate(prompt,image[0],max_tokens)
+  apply_chat_template=lambda processor,config,prompt,**kwargs:prompt
+  mx=SimpleNamespace(clear_cache=lambda:None)
+  return model,None,None
  if not (path/'config.json').is_file() or not any(path.glob('*.safetensors')):
   raise RuntimeError('未找到完整的本地模型。请先安装增强模型，或设置 PHOTO_REVIEW_MODEL_PATH 指向含 config.json 和 safetensors 权重的模型目录。')
- global generate,apply_chat_template,mx
  try:
   from mlx_vlm import load,generate
   from mlx_vlm.prompt_utils import apply_chat_template
@@ -141,7 +149,7 @@ def main():
  ensure_data_dirs(ROOT)
  model_path,MODEL,VERSION=model_settings()
  try:os.nice(5)
- except OSError:pass
+ except (OSError,AttributeError):pass
  with graceful_stop_signals(),acquire_job_lock(WORK/'qwen-local-job.lock'):
   inventory=OUT/'full_results.json'
   rows=json.loads(inventory.read_text()) if inventory.exists() else []
@@ -162,7 +170,8 @@ def main():
     progress('running',total=total,processed=done)
     since_publish=0;last_publish=time.time()
     for identifier in pending:
-     if stop_requested:break
+     if stop_requested or (WORK/'task-stop').exists():
+      stop_requested=True;break
      row=source[identifier];started=time.time()
      try:
       result=run_one(row)
@@ -172,7 +181,8 @@ def main():
       save_result(conn,identifier,VERSION,error=type(error).__name__+': '+str(error)[:160],seconds=time.time()-started)
      since_publish+=1
      progress('pausing' if stop_requested else 'running',total=total,processed=done,last_seconds=round(time.time()-started,1))
-     if stop_requested:break
+     if stop_requested or (WORK/'task-stop').exists():
+      stop_requested=True;break
      if since_publish>=20 or time.time()-last_publish>90:
       complete,uncertain,failed=publish()
       progress('running',total=total,processed=complete,uncertain=uncertain,failed=failed)
@@ -184,6 +194,7 @@ def main():
    raise
   finally:
    conn.close()
+   if sys.platform=='win32' and 'model' in globals():model.close()
 
 if __name__=='__main__':
  try:main()

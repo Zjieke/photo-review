@@ -12,7 +12,8 @@
  <p id="setupPlatform" class="setup-platform" hidden></p>
  <section class="setup-block" aria-labelledby="setupLibraryTitle">
   <div class="setup-section-heading"><div><h3 id="setupLibraryTitle">本机基础识别</h3><p id="setupLibrarySummary" class="muted">正在读取图库状态…</p></div><button id="setupScan" class="primary" disabled>开始整理图库</button></div>
-  <p class="setup-help">首次使用时，请按系统提示允许照片访问。基础识别不需要下载模型。</p>
+  <p id="setupLibraryHelp" class="setup-help">首次使用时，请按系统提示允许照片访问。基础识别不需要下载模型。</p>
+  <div id="setupFolderControls" hidden><button id="setupFolder">选择照片文件夹</button><p id="setupFolderPath" class="muted"></p></div>
   <div id="setupJob" class="setup-job" hidden>
    <div class="setup-job-heading"><strong id="setupJobTitle"></strong><button id="setupStop">暂停任务</button></div>
    <p id="setupJobMessage" role="status"></p>

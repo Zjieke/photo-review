@@ -21,3 +21,17 @@ CATALOG = {
         ],
     },
 }
+
+WINDOWS_CATALOG = {
+    'qwen3vl-2b': {
+        'id': 'qwen3vl-2b', 'name': 'Qwen3-VL 2B · Q8',
+        'description': '本机识别中文标签、游戏和场景。约 2.3 GB，建议 8 GB 以上内存；CPU 也可运行。',
+        'repo': 'ggml-org/Qwen3-VL-2B-Instruct-GGUF',
+        'revision': 'ea6a11058182570be6436b9a2e4ee7f7b49f908d',
+        'directory': 'Qwen3-VL-2B-GGUF', 'license': 'Apache-2.0',
+        'files': [
+            ('Qwen3-VL-2B-Instruct-Q8_0.gguf', 1834427296, 'sha256', 'b7802e29f71a9e5b5e3f83f613df898a2204342dcea71a231ea501d481813c39'),
+            ('mmproj-Qwen3-VL-2B-Instruct-Q8_0.gguf', 445053056, 'sha256', '69066c8f279ec85ff48ab4059f6ebba0d2932ca57667f2bbdac7d9805bca9e7b'),
+        ],
+    },
+}

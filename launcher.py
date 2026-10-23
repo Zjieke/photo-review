@@ -114,7 +114,7 @@ def serve(handler, port, instance, no_browser=False, instance_lock=None):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='照片整理器 · macOS 开发预览（浏览器界面）')
+    parser = argparse.ArgumentParser(description='照片整理器 · 本机浏览器界面')
     actions = parser.add_mutually_exclusive_group()
     actions.add_argument('--demo', action='store_true', help='仅标准库的合成演示，不访问照片图库')
     actions.add_argument('--scan', action='store_true', help='明确扫描本机照片图库，完成后退出')
@@ -133,7 +133,9 @@ def main(argv=None):
         faulthandler.dump_traceback_later(10, repeat=True)
     instance_lock = None
     if args.packaged:
-        os.environ.setdefault('PHOTO_REVIEW_DATA_DIR', str(Path.home() / 'Library/Application Support/Photo Review'))
+        default_data = (Path(os.environ.get('LOCALAPPDATA', Path.home() / 'AppData/Local')) / 'Photo Review'
+                        if sys.platform == 'win32' else Path.home() / 'Library/Application Support/Photo Review')
+        os.environ.setdefault('PHOTO_REVIEW_DATA_DIR', str(default_data))
         os.environ['PHOTO_REVIEW_PACKAGED'] = '1'
         os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
         os.environ['HF_HUB_DISABLE_TELEMETRY'] = '1'
@@ -157,11 +159,12 @@ def main(argv=None):
             run_script(ROOT / 'scripts/build_helper.py')
             return 0
         if args.scan:
-            if sys.platform != 'darwin':
-                raise RuntimeError('真实图库扫描目前只支持 macOS。')
-            require_modules(('PIL', 'osxphotos', 'Vision', 'Quartz'))
-            for name in ('full_analysis.py', 'build_activity_inventory.py',
-                         'find_photo_duplicates.py', 'build_multidim.py'):
+            if sys.platform not in ('darwin', 'win32'):
+                raise RuntimeError('图库扫描支持 macOS 和 Windows。')
+            require_modules(('PIL',) if sys.platform == 'win32' else ('PIL', 'osxphotos', 'Vision', 'Quartz'))
+            stages = ('folder_analysis.py', 'find_photo_duplicates.py', 'build_multidim.py') if sys.platform == 'win32' else (
+                'full_analysis.py', 'build_activity_inventory.py', 'find_photo_duplicates.py', 'build_multidim.py')
+            for name in stages:
                 print(f'正在执行：{name}', flush=True)
                 run_script(WORK / name)
             print('扫描完成。运行 python3 launcher.py 打开页面；此步骤不会删除照片。')
@@ -172,8 +175,8 @@ def main(argv=None):
                 run_script(WORK / 'build_frontend_fixture.py', directory)
                 serve(demo_handler(Path(directory), instance), args.port, instance, args.no_browser)
         else:
-            if sys.platform != 'darwin':
-                raise RuntimeError('当前真实图库版本只支持 macOS；可以用 --demo 查看合成演示。')
+            if sys.platform not in ('darwin', 'win32'):
+                raise RuntimeError('当前图库版本支持 macOS 和 Windows；其他系统可用 --demo。')
             require_modules(('PIL',))
             run_script(WORK / 'build_multidim.py')
             if not (OUT / 'full_results.json').exists():

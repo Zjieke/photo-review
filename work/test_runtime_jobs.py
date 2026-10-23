@@ -56,9 +56,13 @@ class RuntimeJobsTests(unittest.TestCase):
             'supported': True, 'model_supported': True, 'message': ''})
         platform.start()
         self.addCleanup(platform.stop)
+        folder = patch('folder_library.selected_folder', return_value=self.root)
+        folder.start(); self.addCleanup(folder.stop)
+        self.scan_script = 'folder_analysis.py' if sys.platform == 'win32' else 'full_analysis.py'
         for name in ('full_analysis.py', 'build_activity_inventory.py',
                      'find_photo_duplicates.py', 'build_multidim.py'):
             self.script(name, 'pass')
+        self.script(self.scan_script, 'pass')
 
     def script(self, name, source):
         (self.code / name).write_text(textwrap.dedent(source))
@@ -76,7 +80,7 @@ class RuntimeJobsTests(unittest.TestCase):
         self.assertFalse(self.jobs.thread.is_alive(), 'fake background job did not finish')
 
     def test_scan_returns_in_background_rejects_concurrency_and_refreshes_after_success(self):
-        self.script('full_analysis.py', '''
+        self.script(self.scan_script, '''
             import json, os, time
             from pathlib import Path
             root = Path(os.environ['PHOTO_REVIEW_DATA_DIR'])
@@ -106,7 +110,7 @@ class RuntimeJobsTests(unittest.TestCase):
         inventory = self.jobs.out / 'full_results.json'
         original = '[{"uuid":"previous-good-result"}]'
         inventory.write_text(original)
-        self.script('full_analysis.py', 'raise RuntimeError("synthetic failure")')
+        self.script(self.scan_script, 'raise RuntimeError("synthetic failure")')
         self.jobs.start_scan()
         self.wait_finished()
         status = self.jobs.snapshot()['job']
@@ -114,15 +118,16 @@ class RuntimeJobsTests(unittest.TestCase):
         self.assertIn('重试', status['message'])
         self.assertEqual(inventory.read_text(), original)
         self.assertEqual(self.callbacks, [])
-        self.script('full_analysis.py', 'pass')
+        self.script(self.scan_script, 'pass')
         self.jobs.start_scan()
         self.wait_finished()
         self.assertEqual(self.jobs.snapshot()['job']['state'], 'completed')
         self.assertEqual(inventory.read_text(), original)
         self.assertEqual(self.callbacks, ['refreshed'])
 
+    @unittest.skipIf(sys.platform == 'win32', 'POSIX process-group signal semantics; Windows tree cleanup is tested in the native bundle smoke')
     def test_stopping_scan_terminates_worker_process_and_its_child(self):
-        self.script('full_analysis.py', '''
+        self.script(self.scan_script, '''
             import os, signal, subprocess, sys, time
             from pathlib import Path
             root = Path(os.environ['PHOTO_REVIEW_DATA_DIR'])
@@ -133,7 +138,9 @@ class RuntimeJobsTests(unittest.TestCase):
                 raise SystemExit(0)
             signal.signal(signal.SIGTERM, stop)
             (root / 'child-pid').write_text(str(child.pid))
-            while True: time.sleep(.02)
+            while True:
+                if (root / 'work' / 'task-stop').exists(): stop(None, None)
+                time.sleep(.02)
         ''')
         self.jobs.start_scan()
         self.wait_for(lambda: (self.data / 'child-pid').exists(), 'fake child was not started')
@@ -175,7 +182,9 @@ class RuntimeJobsTests(unittest.TestCase):
             signal.signal(signal.SIGTERM, stop)
             (root / 'model-path').write_text(os.environ['PHOTO_REVIEW_MODEL_PATH'])
             (root / 'recognition-ready').write_text('yes')
-            while True: time.sleep(.02)
+            while True:
+                if (root / 'work' / 'task-stop').exists(): stop(None, None)
+                time.sleep(.02)
         ''')
         self.jobs.start_recognition('synthetic')
         self.wait_for(lambda: (self.data / 'recognition-ready').exists(), 'fake recognizer did not enter')

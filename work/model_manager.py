@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import ssl
+import sys
 import threading
 import tempfile
 import time
@@ -11,13 +12,13 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit
-from model_catalog import CATALOG
+from model_catalog import CATALOG, WINDOWS_CATALOG
 
 
 def atomic_json(path, value):
     descriptor, temporary = tempfile.mkstemp(prefix='.' + path.name, dir=path.parent)
     try:
-        with os.fdopen(descriptor, 'w') as stream:
+        with os.fdopen(descriptor, 'w', encoding='utf-8') as stream:
             json.dump(value, stream, ensure_ascii=False)
         os.replace(temporary, path)
     finally:
@@ -26,7 +27,7 @@ def atomic_json(path, value):
 
 def read_json(path, default):
     try:
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return default
 
@@ -63,7 +64,7 @@ class ModelManager:
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.state_file = Path(state_dir) / 'model-settings.json'
-        self.catalog = CATALOG if catalog is None else catalog
+        self.catalog = (WINDOWS_CATALOG if sys.platform == 'win32' else CATALOG) if catalog is None else catalog
         self.opener = opener
         self.lock = threading.RLock()
         self.thread = None
