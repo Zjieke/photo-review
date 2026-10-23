@@ -28,7 +28,7 @@ python3 scripts/smoke_release.py 'dist/Photo Review.app'
 
 脚本从 Astral 官方 [python-build-standalone](https://github.com/astral-sh/python-build-standalone/releases/tag/20261021) 下载可重定位 CPython 3.12.15 `install_only_stripped`，验证固定 SHA256 后解包。依赖从 PyPI 安装到新运行库，按 `requirements-bundle-lock.txt` 固定版本。MLX / MLX Metal 固定 macOS 14 的官方 wheel 及其 SHA256，避免在较新构建系统上误装仅支持新系统的 wheel。
 
-打包采用源文件白名单，不复制现有虚拟环境、照片、扫描数据库、识别结果、私钥或模型。构建清单记录运行库校验值、依赖版本和制品校验值。第三方包自己的许可证随运行库保留。构建结果包含：
+打包采用源文件白名单，不复制现有虚拟环境、照片、扫描数据库、识别结果、私钥或模型。构建清单记录运行库校验值、依赖版本和制品校验值。第三方包自己的许可证随运行库保留；上游 wheel 缺少独立许可文件的 PyObjC 与 tokenizers，按对应官方版本补充到 `third_party/licenses/`。构建结果包含：
 
 - `dist/Photo Review.app`
 - 带平台、版本与签名状态的 ZIP

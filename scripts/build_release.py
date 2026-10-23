@@ -75,6 +75,8 @@ def source_files(root=ROOT):
         if file.is_file() and file.suffix in SOURCE_SUFFIXES and not file.name.startswith('test_'):
             files.append(file)
     files += [root / 'work/native/PhotosTrash.swift', root / 'scripts/build_helper.py']
+    files += [file for file in (root / 'third_party/licenses').glob('*')
+              if file.is_file() and file.suffix in {'.txt', '.md'}]
     return sorted(files)
 
 
@@ -203,6 +205,7 @@ def build(args):
             'signing': 'Developer ID' if args.sign_identity != '-' else 'ad-hoc testing only',
             'notarized': bool(args.notary_profile),
             'model_weights_included': False,
+            'supplemental_licenses': ['pyobjc-12.2.2', 'tokenizers-0.23.3'],
             'dependencies': [{'name': item['metadata']['name'], 'version': item['metadata']['version'],
                               'sha256': item['download_info']['archive_info'].get('hashes', {}).get('sha256')}
                              for item in dependency_report['install']],

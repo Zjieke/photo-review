@@ -10,8 +10,9 @@ Git 仓库包含项目源码、文档和程序生成的测试样例，不包含�
 | Pillow | 图片缩略图与感知哈希 | [MIT-CMU](https://github.com/python-pillow/Pillow/blob/main/LICENSE) |
 | MLX、MLX-VLM | 可选本地视觉推理 | [MLX MIT](https://github.com/ml-explore/mlx)、[MLX-VLM MIT](https://github.com/Blaizzy/mlx-vlm) |
 | Transformers、Hugging Face Hub | 可选模型加载与下载 | [Transformers Apache-2.0](https://github.com/huggingface/transformers)、[Hub Apache-2.0](https://github.com/huggingface/huggingface_hub) |
+| Tokenizers | 本地模型分词 | [Apache-2.0](https://github.com/huggingface/tokenizers/blob/v0.23.3/LICENSE) |
 | Qwen3.5-4B MLX 4-bit 权重 | 参考增强模型，单独下载 | [模型卡及 Apache-2.0 声明](https://huggingface.co/lmstudio-community/Qwen3.5-4B-MLX-4bit) |
 
-Apple Photos、Vision、PhotoKit 及开发工具由系统提供，使用需符合 Apple 的相应条款。第三方组件的间接依赖保留自身许可；发布包含二进制依赖的安装包前，需要额外收集所分发版本的完整许可和通知。
+Apple Photos、Vision、PhotoKit 及开发工具由系统提供，使用需符合 Apple 的相应条款。发布包保留 CPython 的 `LICENSE.txt` 和依赖安装目录中原有的 license／notice 文件（包括 OpenCV 的第三方通知、NumPy 的 LAPACK 许可及 cryptography 的多份许可）。上游 PyObjC 12.2.2 与 tokenizers 0.23.3 wheel 缺少独立许可证文件的部分，在 `third_party/licenses/` 中按对应官方版本补充；来源与校验值见其中的 `SOURCES.md`。更新或增加依赖时，应一并核对所分发版本的许可与通知。
 
 项目曾参考照片整理、重复检测工具的一般交互思路；本仓库不包含 PhotoDelete、Immich、PhotoPrism 或 Czkawka 的源码或二进制。

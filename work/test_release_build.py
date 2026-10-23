@@ -47,6 +47,12 @@ class ReleaseBuildTests(unittest.TestCase):
             self.assertEqual({p.name for p in binary.iterdir()}, {'python3', 'python3.12'})
             self.assertTrue((binary / 'python3').exists())
 
+    def test_supplemental_licenses_are_in_release_source_whitelist(self):
+        files = {str(path.relative_to(ROOT)) for path in builder.source_files()}
+        self.assertIn('third_party/licenses/pyobjc-12.2.2-LICENSE.txt', files)
+        self.assertIn('third_party/licenses/tokenizers-0.23.3-LICENSE.txt', files)
+        self.assertIn('third_party/licenses/SOURCES.md', files)
+
     def test_corrupt_cached_runtime_is_rejected(self):
         with tempfile.TemporaryDirectory() as name:
             cache = Path(name)
